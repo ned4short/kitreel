@@ -151,3 +151,36 @@ a { color: var(--accent); word-break: break-all; }
 
 .action-toggle { gap: 6px; cursor: pointer; }
 .action-toggle input { width: 18px; height: 18px; accent-color: currentColor; }
+
+/* Reel extras */
+.extras { border: 1px solid rgba(255,255,255,.14); border-radius: 12px; padding: 12px 14px 4px; margin: 14px 0; display: grid; gap: 8px; }
+.extras legend { padding: 0 6px; font-weight: 700; }
+.check { gap: 8px; cursor: pointer; }
+.check input { width: 18px; height: 18px; flex: none; }
+#fx-title-fields { margin: 0 0 4px 26px; }
+
+/* Your clips */
+.clip-panel { margin: 18px 0 8px; border-top: 1px solid rgba(255,255,255,.12); padding-top: 14px; }
+.clip-panel h3, .clip-downloads-wrap h3 { margin: 0 0 4px; font-size: 1.05rem; }
+#clip-preview { width: 100%; max-height: 360px; border-radius: 10px; background: #000; margin: 8px 0; }
+.clip-list { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 8px; }
+.clip-row { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px;
+  padding: 10px 12px; border-radius: 10px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1); }
+.clip-row.removed { opacity: .5; }
+.clip-row.removed .clip-meta b { text-decoration: line-through; }
+.clip-meta { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
+.clip-reason { opacity: .85; }
+.clip-actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.trim { display: inline-flex; align-items: center; gap: 4px; font-size: .85rem; opacity: .9; }
+button.small { padding: 6px 10px; font-size: .85rem; min-height: 0; }
+
+/* After the reel */
+.clip-downloads-wrap { margin-top: 18px; }
+.clip-downloads { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.clip-download { padding: 8px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,.2); text-decoration: none; color: inherit; font-size: .9rem; }
+.clip-download:hover { background: rgba(255,255,255,.08); }
+.tip-box { margin-top: 20px; padding: 14px 16px; border-radius: 12px; background: rgba(255,214,0,.08); border: 1px solid rgba(255,214,0,.35);
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.tip-box p { margin: 0; flex: 1 1 260px; }
+.clip-actions .ghost { border: 1px solid var(--line); color: var(--text); }
+[hidden] { display: none !important; }

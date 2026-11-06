@@ -26,7 +26,7 @@
   <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
   <link rel="manifest" href="/site.webmanifest" />
   <!-- Bump ?v on both asset tags whenever app.js or style.css changes. -->
-  <link rel="stylesheet" href="/style.css?v=6" />
+  <link rel="stylesheet" href="/style.css?v=8" />
 </head>
 <body>
   <header>
@@ -118,6 +118,24 @@
           </select>
         </label>
       </div>
+      <fieldset class="extras">
+        <legend>Reel extras</legend>
+        <label class="inline check"><input type="checkbox" id="fx-spotlight" checked /> Spotlight my player at the start of each clip</label>
+        <label class="inline check"><input type="checkbox" id="fx-title" checked /> Title card at the start</label>
+        <div class="grid" id="fx-title-fields">
+          <label>Player name <span class="opt">(optional)</span>
+            <input type="text" id="fx-name" maxlength="40" placeholder="e.g. Maya Johnson" autocomplete="off" />
+          </label>
+          <label>Team <span class="opt">(optional)</span>
+            <input type="text" id="fx-team" maxlength="40" placeholder="e.g. SA Strikers U12" autocomplete="off" />
+          </label>
+          <label>Game date
+            <input type="date" id="fx-date" />
+          </label>
+        </div>
+        <label class="inline check"><input type="checkbox" id="fx-end" checked /> "Made with KitReel" card at the end</label>
+        <p class="hint">The title card uses the player's number from step 2 if you added one.</p>
+      </fieldset>
       <div class="row">
         <button id="scan" class="primary" disabled>Find players</button>
         <span id="team-hint" class="hint">Choose your player's team color first.</span>
@@ -167,6 +185,12 @@
       <div class="row center">
         <button id="more" class="secondary" hidden>Show more moments</button>
       </div>
+      <div id="clip-panel" class="clip-panel" hidden>
+        <h3>Your clips</h3>
+        <p class="hint">Play each clip, trim it a second at a time, or remove it before making your reel.</p>
+        <video id="clip-preview" playsinline controls hidden></video>
+        <ol id="clip-list" class="clip-list"></ol>
+      </div>
       <div class="sticky-build">
         <button id="build" class="primary" disabled>Make my reel</button>
         <span class="hint" id="build-hint">Pick at least one moment.</span>
@@ -184,6 +208,15 @@
         <button id="clear" class="ghost">Clear everything</button>
       </div>
       <p class="hint" id="share-info"></p>
+      <div id="clip-downloads-wrap" class="clip-downloads-wrap" hidden>
+        <h3>Download clips one by one</h3>
+        <p class="hint">Great for posting a single goal, save or tackle.</p>
+        <div id="clip-downloads" class="clip-downloads"></div>
+      </div>
+      <div class="tip-box">
+        <p><b>Enjoy your reel?</b> KitReel is free with no sign-up. A small tip helps keep it running.</p>
+        <a class="button primary" href="https://www.nedairfilters.com/product/tipsanddonations/61" target="_blank" rel="noopener noreferrer">Leave a tip</a>
+      </div>
     </section>
   </main>
 
@@ -201,6 +234,6 @@
   </footer>
 
   <!-- Bump ?v on both asset tags whenever app.js or style.css changes. -->
-  <script type="module" src="/app.js?v=13"></script>
+  <script type="module" src="/app.js?v=14"></script>
 </body>
 </html>

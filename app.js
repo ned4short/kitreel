@@ -5,6 +5,7 @@ import { createWorkSession } from "/work-session.js";
 import { actionSegments, applyFollowedTracks, budgetTracks, clearAutomatic, clipsFor, isCameraCut, isManualPick } from "/auto-pick.js?v=3";
 import { createCrowdTask } from "/crowd-noise.js";
 import { trackPlayer } from "/tracker.js?v=3";
+import { cameraFor, cropFilter, spotlightFor, drawRing, drawCard, silentWav } from "/reel-fx.js?v=1";
 
 const $ = (id) => document.getElementById(id);
 const PAGE = 30;            // moments shown per "Show more"
@@ -17,6 +18,8 @@ const state = {
   moments: [], shown: PAGE, reelBlob: null, reelUrl: null, ffmpeg: null, ffmpegPromise: null,
   loudness: null, cancelCrowd: null, editorQueue: Promise.resolve(), followRan: false, scanInterval: 3,
   action: { enabled: true, closeness: "normal" },   // "Only keep my player in action"
+  clipEdits: {},          // per-clip trims/removals, keyed by the clip's original start–end
+  clipBlobs: [],          // finished single clips, for "Download clips one by one"
 };
 const actionOpts = () => ({ ...state.action, aspect: state.width / state.height || 16 / 9 });
 
@@ -61,6 +64,11 @@ async function init() {
   $("sort").addEventListener("change", () => { state.shown = PAGE; renderMoments(); });
   $("auto-pick").addEventListener("click", () => run(followPlayer, "review-error"));
   $("clear-auto").addEventListener("click", clearAutoPicks);
+  $("clip-preview").addEventListener("timeupdate", () => {
+    if (clipPreviewEnd !== null && $("clip-preview").currentTime >= clipPreviewEnd) { $("clip-preview").pause(); clipPreviewEnd = null; }
+  });
+  $("fx-title").addEventListener("change", () => { $("fx-title-fields").hidden = !$("fx-title").checked; });
+  try { $("fx-date").value = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10); } catch {}
   const onActionChange = () => {
     state.action.enabled = $("action-only").checked;
     state.action.closeness = $("closeness").value;
@@ -752,8 +760,14 @@ function togglePick(m, i, card) {
   renderMoments();
 }
 
-function makeClips() {
-  return clipsFor(state.moments, state.duration, actionOpts());
+const clipKey = c => `${c.start.toFixed(1)}-${c.end.toFixed(1)}`;
+function makeClips({ includeRemoved = false } = {}) {
+  return clipsFor(state.moments, state.duration, actionOpts()).map(c => {
+    const key = clipKey(c), e = state.clipEdits[key] || {};
+    const start = clamp(c.start + (e.dStart || 0), 0, c.end - 1);
+    const end = clamp(c.end + (e.dEnd || 0), start + 1, state.duration);
+    return { ...c, key, start, end, removed: Boolean(e.removed) };
+  }).filter(c => includeRemoved || !c.removed);
 }
 function reelSeconds() { return makeClips().reduce((s, c) => s + c.end - c.start, 0); }
 function updatePickInfo() {
@@ -764,6 +778,58 @@ function updatePickInfo() {
   $("build-hint").textContent = n ? `${state.moments.length} moments found. Your reel will be ${fmt(secs)}.` : "Pick at least one moment.";
   $("auto-pick").disabled = state.moments.filter(isManualPick).length < 1;
   $("auto-hint").hidden = !$("auto-pick").disabled;
+  renderClipList();
+}
+
+// ---------- "Your clips": preview, trim and remove before making the reel ----------
+const CLIP_ICON = { "On the ball": "⚽", "Near the ball": "⚽", "Challenge": "💥", "In the action": "🏃", "Followed": "👟", "Picked": "📍" };
+let clipPreviewEnd = null;
+function renderClipList() {
+  const clips = makeClips({ includeRemoved: true });
+  const list = $("clip-list");
+  $("clip-panel").hidden = !clips.length;
+  list.innerHTML = "";
+  clips.forEach((c, i) => {
+    const li = document.createElement("li");
+    li.className = "clip-row" + (c.removed ? " removed" : "");
+    const len = Math.round(c.end - c.start);
+    li.innerHTML = `<div class="clip-meta"><b>Clip ${i + 1}</b> <span>${fmt(c.start)}–${fmt(c.end)} · ${len}s</span>
+      <span class="clip-reason">${CLIP_ICON[c.reason] || ""} ${c.reason || ""}</span></div>
+      <div class="clip-actions">
+        <button type="button" class="ghost small" data-act="play" ${c.removed ? "disabled" : ""}>▶ Play</button>
+        <span class="trim" aria-label="Start time"><span>Start</span>
+          <button type="button" class="ghost small" data-act="s-" aria-label="Start 1 second earlier" ${c.removed ? "disabled" : ""}>−1s</button>
+          <button type="button" class="ghost small" data-act="s+" aria-label="Start 1 second later" ${c.removed ? "disabled" : ""}>+1s</button></span>
+        <span class="trim" aria-label="End time"><span>End</span>
+          <button type="button" class="ghost small" data-act="e-" aria-label="End 1 second earlier" ${c.removed ? "disabled" : ""}>−1s</button>
+          <button type="button" class="ghost small" data-act="e+" aria-label="End 1 second later" ${c.removed ? "disabled" : ""}>+1s</button></span>
+        <button type="button" class="ghost small" data-act="rm">${c.removed ? "Put back" : "Remove"}</button>
+      </div>`;
+    li.querySelectorAll("button").forEach(b => b.addEventListener("click", () => clipAction(c, b.dataset.act)));
+    list.appendChild(li);
+  });
+}
+function clipAction(c, act) {
+  if (workSession.running) return;
+  if (act === "play") return playClip(c);
+  const e = state.clipEdits[c.key] || (state.clipEdits[c.key] = { dStart: 0, dEnd: 0, removed: false });
+  if (act === "s-") e.dStart = Math.max(-5, e.dStart - 1);
+  if (act === "s+") e.dStart = e.dStart + 1;
+  if (act === "e-") e.dEnd = e.dEnd - 1;
+  if (act === "e+") e.dEnd = Math.min(5, e.dEnd + 1);
+  if (act === "rm") e.removed = !e.removed;
+  $("review-error").textContent = "";
+  updatePickInfo();
+  if (act !== "rm" && !e.removed) playClip(makeClips().find(x => x.key === c.key) || c);
+}
+function playClip(c) {
+  const v = $("clip-preview");
+  if (v.src !== state.url) v.src = state.url;
+  v.hidden = false;
+  clipPreviewEnd = c.end;
+  v.currentTime = c.start;
+  v.play().catch(() => {});
+  v.scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 function updateAutoResult() {
   if (!state.followRan) return;
@@ -863,8 +929,8 @@ function fitFollowedClips() {
       duration: state.duration, loudness: state.loudness, aspect: state.width / state.height,
       action: actionOpts(),
     });
-  const errorText = "Your picks add up to more than the max reel length. Raise it or untick some moments.";
-  if (result.fits) {
+  const errorText = "Your picks add up to more than the max reel length. Raise it, remove some clips, or untick some moments.";
+  if (result.fits || reelSeconds() <= max) {
     if ($("review-error").textContent === errorText) $("review-error").textContent = "";
     return true;
   }
@@ -900,6 +966,7 @@ async function buildReel() {
   const secs = clips.reduce((s, c) => s + c.end - c.start, 0);
   $("reel-info").textContent = `${fmt(secs)} · ${$("aspect").value} · ${mb.toFixed(1)} MB (about ${Math.max(1, Math.ceil(mb * 8 / 5))} seconds to download on a typical 5 Mbps connection)`;
   $("share-info").textContent = "";
+  renderClipDownloads();
   hideProgress();
   show("step-reel");
   $("step-reel").scrollIntoView({ behavior: "smooth" });
@@ -908,35 +975,95 @@ async function buildReel() {
 async function encodeReel(clips, W, H) {
   const ff = await getEditor();
   const input = await mountInput(ff);
+  const extras = {
+    spotlight: $("fx-spotlight").checked, title: $("fx-title").checked, end: $("fx-end").checked,
+    name: $("fx-name").value.trim(), team: $("fx-team").value.trim(),
+    date: $("fx-date").value ? new Date($("fx-date").value + "T12:00:00").toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" }) : "",
+    number: $("kit-number").value.trim(),
+  };
+  const ratio = W / H, SW = state.width, SH = state.height;
+  const total = clips.length + (extras.title ? 1 : 0) + (extras.end ? 1 : 0);
 
   let current = 0;
   const estimate = workSession.startEstimate();
-  const onProg = ({ progress }) => setProgress(((current + Math.min(1, Math.max(0, progress))) / clips.length) * 100,
-    `Cutting clip ${current + 1} of ${clips.length}…`, estimate(current, clips.length));
+  const onProg = ({ progress }) => setProgress(((current + Math.min(1, Math.max(0, progress))) / total) * 100,
+    current < clips.length ? `Cutting clip ${current + 1} of ${clips.length}…` : "Adding title and end cards…",
+    estimate(current, total));
   ff.on("progress", onProg);
 
-  const names = [];
+  const names = [], temp = [];
+  const writeCanvas = async (name, draw) => {
+    const cv = document.createElement("canvas");
+    draw(cv);
+    const blob = await new Promise(res => cv.toBlob(res, "image/png"));
+    await ff.writeFile(name, new Uint8Array(await blob.arrayBuffer()));
+    temp.push(name);
+  };
+  const VIDEO_OUT = ["-c:v", "libx264", "-preset", "ultrafast", "-b:v", "2000k", "-maxrate", "2500k", "-bufsize", "4000k",
+    "-pix_fmt", "yuv420p", "-r", "30"];
+  const AUDIO_OUT = ["-c:a", "aac", "-b:a", "128k", "-ar", "44100", "-ac", "2"];
+  for (const u of state.clipBlobs) URL.revokeObjectURL(u.url);
+  state.clipBlobs = [];
+
   try {
+    // Does the video have sound? Cards must match the clips (both with or both without audio).
+    let hasAudio = false;
+    const sniff = ({ message }) => { if (/Stream #\S+.*Audio:/.test(message)) hasAudio = true; };
+    ff.on("log", sniff);
+    try { await ff.exec(["-hide_banner", "-i", input]); } catch {}
+    ff.off("log", sniff);
+
+    // Cards (drawn here, turned into 2.5-second clips).
+    const cardClip = async (kind, out) => {
+      await writeCanvas(`${kind}.png`, cv => drawCard(cv, W, H, kind, extras));
+      const args = ["-loop", "1", "-framerate", "30", "-t", "2.5", "-i", `${kind}.png`];
+      if (hasAudio) { await ff.writeFile("silence.wav", silentWav(2.5)); temp.push("silence.wav"); args.push("-i", "silence.wav"); }
+      args.push(...VIDEO_OUT, ...(hasAudio ? [...AUDIO_OUT, "-shortest"] : []), "-t", "2.5", out);
+      return (await ff.exec(args)) === 0;
+    };
+    if (extras.title) {
+      current = 0;
+      if (await cardClip("title", "title.mp4")) names.push("title.mp4");
+    }
+
+    let ringReady = null;
     for (let i = 0; i < clips.length; i++) {
       await workSession.waitUntilVisible();
       current = i;
       const c = clips[i];
-      const crop = cropFor(c, W / H);
       const out = `c${i}.mp4`;
-      const code = await ff.exec([
-        "-ss", c.start.toFixed(2), "-t", (c.end - c.start).toFixed(2), "-i", input,
-        "-map", "0:v:0", "-map", "0:a:0?",
-        "-vf", `crop=${crop.w}:${crop.h}:${crop.x}:${crop.y},scale=${W}:${H},setsar=1`,
-        "-c:v", "libx264", "-preset", "ultrafast", "-b:v", "2000k", "-maxrate", "2500k", "-bufsize", "4000k",
-        "-pix_fmt", "yuv420p", "-r", "30",
-        "-c:a", "aac", "-b:a", "128k", "-ar", "44100", "-ac", "2",
-        out,
-      ]);
+      const cam = cameraFor(c, SW, SH, ratio);
+      const spot = extras.spotlight ? spotlightFor(c, cam, SW, SH, W, H) : null;
+      const base = `${cropFilter(cam)},scale=${W}:${H},setsar=1`;
+      const dur = (c.end - c.start).toFixed(2);
+      const plain = ["-ss", c.start.toFixed(2), "-t", dur, "-i", input,
+        "-map", "0:v:0", "-map", "0:a:0?", "-vf", base, ...VIDEO_OUT, ...AUDIO_OUT, out];
+      let code = 1;
+      if (spot) {
+        // One ring image per size; overlay it at the player's feet for the first 2 seconds.
+        const ringName = `ring-${spot.ringW}x${spot.ringH}.png`;
+        if (ringReady !== ringName) { await writeCanvas(ringName, cv => drawRing(cv, spot.ringW, spot.ringH)); ringReady = ringName; }
+        code = await ff.exec(["-ss", c.start.toFixed(2), "-t", dur, "-i", input, "-loop", "1", "-t", dur, "-i", ringName,
+          "-filter_complex", `[0:v]${base}[v];[v][1:v]overlay=x='${spot.x}':y='${spot.y}':enable='lt(t,2)'[out]`,
+          "-map", "[out]", "-map", "0:a:0?", ...VIDEO_OUT, ...AUDIO_OUT, out]);
+      }
+      if (code !== 0) code = await ff.exec(plain);                         // spotlight failed: plain clip
+      if (code !== 0) code = await ff.exec(["-ss", c.start.toFixed(2), "-t", dur, "-i", input,  // panning failed: still crop
+        "-map", "0:v:0", "-map", "0:a:0?", "-vf", `crop=${cam.w}:${cam.h}:${cam.xs[0].v}:${cam.ys[0].v},scale=${W}:${H},setsar=1`,
+        ...VIDEO_OUT, ...AUDIO_OUT, out]);
       if (code !== 0) throw new Error(`The editor couldn't cut clip ${i + 1}.`);
       names.push(out);
-      setProgress((i + 1) / clips.length * 100, `Cutting clip ${i + 1} of ${clips.length}…`,
-        estimate(i + 1, clips.length));
+      const data = await ff.readFile(out);
+      const blob = new Blob([data.buffer], { type: "video/mp4" });
+      state.clipBlobs.push({ url: URL.createObjectURL(blob), name: `clip-${i + 1}.mp4`, clip: c });
+      setProgress((i + 1) / total * 100, `Cutting clip ${i + 1} of ${clips.length}…`, estimate(i + 1, total));
     }
+
+    if (extras.end) {
+      current = clips.length;
+      if (await cardClip("end", "end.mp4")) names.push("end.mp4");
+    }
+
     await workSession.waitUntilVisible();
     setProgress(100, "Joining clips…");
     await ff.writeFile("list.txt", names.map((n) => `file '${n}'`).join("\n"));
@@ -946,10 +1073,9 @@ async function encodeReel(clips, W, H) {
     return new Blob([data.buffer], { type: "video/mp4" });
   } finally {
     ff.off("progress", onProg);
-    for (const n of [...names, "list.txt", "reel.mp4"]) { try { await ff.deleteFile(n); } catch {} }
+    for (const n of [...names, ...temp, "list.txt", "reel.mp4"]) { try { await ff.deleteFile(n); } catch {} }
     await releaseInput(ff, input);
   }
-
 }
 async function releaseInput(ff, input) {
   if (input.startsWith("/in/")) {
@@ -984,6 +1110,18 @@ function cropFor(c, ratio) {
   const x = Math.round(clamp(c.cx * SW - w / 2, 0, SW - w));   // keep the player in frame
   const y = Math.round(clamp(c.cy * SH - h / 2, 0, SH - h));
   return { w, h, x: x - (x % 2), y: y - (y % 2) };
+}
+
+function renderClipDownloads() {
+  const box = $("clip-downloads");
+  box.innerHTML = "";
+  state.clipBlobs.forEach((b, i) => {
+    const a = document.createElement("a");
+    a.href = b.url; a.download = b.name; a.className = "clip-download";
+    a.textContent = `⬇ Clip ${i + 1} · ${Math.round(b.clip.end - b.clip.start)}s${b.clip.reason ? ` · ${CLIP_ICON[b.clip.reason] || ""} ${b.clip.reason}` : ""}`;
+    box.appendChild(a);
+  });
+  $("clip-downloads-wrap").hidden = !state.clipBlobs.length;
 }
 
 // ---------- share / clear ----------

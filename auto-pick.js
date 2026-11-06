@@ -4,6 +4,15 @@ const clamp01 = n => Math.max(0, Math.min(1, n));
 export const isManualPick = m => m.picked !== null &&
   m.pickSource !== "auto" && m.pickSource !== "followed";
 
+// Where the player is over time inside [start, end], from a followed track (absolute times).
+function pathFor(track, start, end) {
+  if (!track) return [];
+  return track.boxes.filter(b => b.found && b.t >= start - 0.25 && b.t <= end + 0.25)
+    .sort((a, b) => a.t - b.t)
+    .map(b => ({ t: b.t, cx: (b.box[0] + b.box[2]) / 2, cy: (b.box[1] + b.box[3]) / 2, y0: b.box[1], y1: b.box[3] }));
+}
+const REASON_RANK = { "On the ball": 6, "Challenge": 5, "Near the ball": 4, "In the action": 3, "Followed": 2, "Picked": 1 };
+
 export function clipsFor(moments, duration, action = null) {
   const intervals = [];
   const picked = moments.filter(m => m.picked !== null).sort((a, b) => a.t - b.t);
@@ -21,7 +30,8 @@ export function clipsFor(moments, duration, action = null) {
       const excluded = moments.filter(x => x.autoExcluded).map(x => x.t);
       for (const s of act.segments) {
         if (excluded.some(t => t >= s.start && t <= s.end)) continue;   // the user unticked a moment in it
-        intervals.push({ start: s.start, end: s.end, cxs: s.cxs, cys: s.cys });
+        intervals.push({ start: s.start, end: s.end, cxs: s.cxs, cys: s.cys, reason: s.reason,
+          path: pathFor(track, s.start, s.end) });
       }
       continue;
     }
@@ -31,7 +41,8 @@ export function clipsFor(moments, duration, action = null) {
     const fallback = m.players[m.picked].box;
     const boxes = centers.length ? centers : [fallback];
     const c = { start, end, cxs: boxes.map(b => (b[0] + b[2]) / 2),
-      cys: boxes.map(b => (b[1] + b[3]) / 2) };
+      cys: boxes.map(b => (b[1] + b[3]) / 2), reason: tracked ? "Followed" : "Picked",
+      path: tracked ? pathFor(track, start, end) : [] };
     intervals.push(c);
   }
   const clips = [];
@@ -40,10 +51,13 @@ export function clipsFor(moments, duration, action = null) {
     if (last && c.start <= last.end + 0.5) {
       last.end = Math.max(last.end, c.end);
       last.cxs.push(...c.cxs); last.cys.push(...c.cys);
-    } else clips.push(c);
+      last.path = [...last.path, ...c.path].sort((a, b) => a.t - b.t);
+      if ((REASON_RANK[c.reason] || 0) > (REASON_RANK[last.reason] || 0)) last.reason = c.reason;
+    } else clips.push({ ...c, path: [...c.path] });
   }
   const avg = a => a.reduce((s, n) => s + n, 0) / a.length;
-  return clips.map(c => ({ start: c.start, end: c.end, cx: avg(c.cxs), cy: avg(c.cys) }));
+  return clips.map(c => ({ start: c.start, end: c.end, cx: avg(c.cxs), cy: avg(c.cys),
+    reason: c.reason, path: c.path }));
 }
 
 function boundsFor(moment, duration) {
