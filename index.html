@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>KitReel – Free Soccer Player Highlight Reels</title>
+  <meta name="description" content="Turn a soccer game video into a highlight reel of one player. Pick the team, tag your player, download the reel. Free, no sign-up, and your video never leaves your device." />
+  <link rel="canonical" href="https://kitreel.replit.app/" />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="KitReel" />
+  <meta property="og:title" content="KitReel – Tag your player. Get their highlight reel." />
+  <meta property="og:description" content="Turn a soccer game video into a highlight reel of one player. Pick the team, tag your player, download the reel. Free, no sign-up, and your video never leaves your device." />
+  <meta property="og:url" content="https://kitreel.replit.app/" />
+  <meta property="og:image" content="https://kitreel.replit.app/og-image-tag.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="A phone showing a soccer player highlighted in a green box, next to player picks, with the KitReel logo" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="KitReel – Tag your player. Get their highlight reel." />
+  <meta name="twitter:description" content="Turn a soccer game video into a highlight reel of one player. Pick the team, tag your player, download the reel. Free, no sign-up, and your video never leaves your device." />
+  <meta name="twitter:image" content="https://kitreel.replit.app/og-image-tag.png" />
+  <meta name="theme-color" content="#0f1a14" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <link rel="manifest" href="/site.webmanifest" />
+  <!-- Bump ?v on both asset tags whenever app.js or style.css changes. -->
+  <link rel="stylesheet" href="/style.css?v=5" />
+</head>
+<body>
+  <header>
+    <div class="header-inner">
+      <div class="brand">
+        <h1>KitReel</h1>
+        <p>Upload game video, pick a team, tag your player, and get their highlight reel.</p>
+      </div>
+    </div>
+    <section class="how-it-works" aria-labelledby="how-title">
+      <h2 id="how-title">How it works</h2>
+      <ol>
+        <li><span class="how-number">1</span><span>Upload game video</span></li>
+        <li><span class="how-number">2</span><span>Pick the team color</span></li>
+        <li><span class="how-number">3</span><span>Tag your player</span></li>
+        <li><span class="how-number">4</span><span>Download your reel</span></li>
+      </ol>
+    </section>
+  </header>
+
+  <main>
+    <!-- Step 1 -->
+    <section class="card" id="step-video">
+      <div class="device-tip" id="device-tip" role="note" hidden>
+        <p>Tip: KitReel works best on a computer with Chrome or Edge. Choose videos up to 4 GB and 101 minutes on a computer (phones: 500 MB and 20 minutes). If you use a phone, keep this tab open and your screen on while it runs.</p>
+        <button type="button" id="dismiss-device-tip" aria-label="Dismiss tip">×</button>
+      </div>
+      <h2>Upload game video</h2>
+      <p class="hint">Up to <b id="lim-mb">4</b> <span id="lim-unit">GB</span> and <b id="lim-min">101</b> minutes. Your video stays on your device — it's never uploaded.</p>
+      <input type="file" id="file" accept="video/*" class="visually-hidden" aria-label="Upload game video file" />
+      <label for="file" id="drop-zone" class="drop-zone" role="button" tabindex="0" aria-controls="file" aria-label="Upload game video">
+        <svg class="drop-icon" viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+          <path d="M24 31V8m0 0-8 8m8-8 8 8M10 27v10a3 3 0 0 0 3 3h22a3 3 0 0 0 3-3V27" />
+          <path d="M21 23.5v8l7-4-7-4Z" class="drop-play" />
+        </svg>
+        <span id="drop-title" class="drop-title">Drop your game video here</span>
+        <span id="drop-subtitle" class="drop-subtitle">or tap to choose a file</span>
+        <span id="drop-limits" class="drop-limits">MP4 · up to 4 GB · up to 101 minutes</span>
+      </label>
+      <button type="button" id="change-video" class="change-video" hidden>Choose a different video</button>
+      <p class="error" id="file-error"></p>
+      <video id="preview" controls playsinline hidden></video>
+      <p class="hint" id="video-info"></p>
+      <p class="hint" id="detector-status" role="status" aria-live="polite" hidden></p>
+    </section>
+
+    <!-- Step 2 -->
+    <section class="card" id="step-player" hidden>
+      <h2><span class="num">2</span> Pick the team</h2>
+      <div class="row">
+        <button id="find-teams" class="secondary">Find team colors</button>
+        <span class="hint">or click a jersey in the video above</span>
+      </div>
+      <div id="teams" class="chips"></div>
+      <div class="grid">
+        <label>Shirt color
+          <input type="color" id="kit-color" value="#d62828" />
+        </label>
+        <label>Player's number <span class="opt">(optional reminder)</span>
+          <input type="number" id="kit-number" min="0" max="999" placeholder="10" />
+        </label>
+      </div>
+    </section>
+
+    <!-- Step 3 -->
+    <section class="card" id="step-options" hidden>
+      <h2><span class="num">3</span> Reel options</h2>
+      <div class="grid">
+        <label>Aspect ratio
+          <select id="aspect">
+            <option value="16:9">16:9 – YouTube / TV</option>
+            <option value="9:16">9:16 – Reels / TikTok / Shorts</option>
+            <option value="1:1">1:1 – Square</option>
+            <option value="4:5">4:5 – Instagram feed</option>
+          </select>
+        </label>
+        <label>Max reel length
+          <select id="max-len">
+            <option value="60">1 minute</option>
+            <option value="120" selected>2 minutes</option>
+            <option value="180">3 minutes</option>
+          </select>
+        </label>
+        <label>Check the video every
+          <select id="interval">
+            <option value="2">2 seconds (more moments)</option>
+            <option value="3" selected>3 seconds</option>
+            <option value="5">5 seconds (faster)</option>
+          </select>
+        </label>
+      </div>
+      <div class="row">
+        <button id="scan" class="primary" disabled>Find players</button>
+        <span id="team-hint" class="hint">Choose your player's team color first.</span>
+      </div>
+      <p id="scan-estimate" class="hint"></p>
+      <p class="error" id="scan-error"></p>
+    </section>
+
+    <!-- Progress -->
+    <section class="card" id="progress-card" hidden>
+      <h2 id="progress-title">Working…</h2>
+      <progress id="progress" max="100" value="0"></progress>
+      <p class="hint">Keep this tab open and your screen on.</p>
+      <p class="hint" id="progress-text"></p>
+      <p class="hint" id="resume-notice" role="status" hidden></p>
+    </section>
+
+    <!-- Step 4 -->
+    <section class="card" id="step-review" hidden>
+      <h2><span class="num">4</span> Tag your player</h2>
+      <p class="hint" id="review-help">In each moment, tag your player. Skip moments they're not in. Tap again to undo.</p>
+      <div class="review-bar">
+        <span id="pick-count">0 picked</span>
+        <label class="inline">Show
+          <select id="sort">
+            <option value="time">In time order</option>
+            <option value="match" disabled>Best matches first</option>
+            <option value="best">Best moments first</option>
+          </select>
+        </label>
+        <button id="auto-pick" class="secondary" disabled>Follow my player</button>
+        <button id="clear-auto" class="ghost" hidden>Clear auto-picks</button>
+      </div>
+      <p id="auto-hint" class="hint">Tap your player once in each play you want, then click Follow my player. KitReel follows until it loses them, the camera cuts, or the video ends.</p>
+      <p id="crowd-status" class="hint" role="status" hidden></p>
+      <p id="auto-result" class="hint" role="status" hidden></p>
+      <p class="error" id="review-error"></p>
+      <div id="moments" class="moments"></div>
+      <div class="row center">
+        <button id="more" class="secondary" hidden>Show more moments</button>
+      </div>
+      <div class="sticky-build">
+        <button id="build" class="primary" disabled>Make my reel</button>
+        <span class="hint" id="build-hint">Pick at least one moment.</span>
+      </div>
+    </section>
+
+    <!-- Step 5 -->
+    <section class="card" id="step-reel" hidden>
+      <h2><span class="num">5</span> Your reel</h2>
+      <video id="reel" controls playsinline></video>
+      <p class="hint" id="reel-info"></p>
+      <div class="row">
+        <a id="download" class="button primary" download="highlight-reel.mp4">Download</a>
+        <button id="share" class="secondary">Get a share link</button>
+        <button id="clear" class="ghost">Clear everything</button>
+      </div>
+      <p class="hint" id="share-info"></p>
+    </section>
+  </main>
+
+  <footer>
+    <p>Only use videos you recorded or have permission to use. Share links expire automatically.</p>
+    <div class="footer-donation">
+      <p>KitReel is free to use. Tips help keep it running.</p>
+      <a class="button primary donate-button" href="https://www.nedairfilters.com/product/tipsanddonations/61" target="_blank" rel="noopener noreferrer">Donate</a>
+    </div>
+    <p class="site-credit">
+      <span>KitReel by <a href="https://www.nedwebservices.com" target="_blank" rel="noopener noreferrer">Ned Web Services</a> (2026)</span>
+      <span id="footer-stats" class="footer-stats">v-—-uv-—-up-—-d-—</span>
+    </p>
+    <div data-ned-ads></div>
+    <script async src="https://ads.nedwebservices.com/widget.js"></script>
+  </footer>
+
+  <!-- Bump ?v on both asset tags whenever app.js or style.css changes. -->
+  <script type="module" src="/footer-stats.js?v=1"></script>
+  <script type="module" src="/app.js?v=12"></script>
+</body>
+</html>
