@@ -966,6 +966,15 @@ async function buildReel() {
   const secs = clips.reduce((s, c) => s + c.end - c.start, 0);
   $("reel-info").textContent = `${fmt(secs)} · ${$("aspect").value} · ${mb.toFixed(1)} MB (about ${Math.max(1, Math.ceil(mb * 8 / 5))} seconds to download on a typical 5 Mbps connection)`;
   $("share-info").textContent = "";
+  const sr = state.spotReport;
+  $("spot-info").hidden = !sr?.on;
+  if (sr?.on) {
+    const n = clips.length;
+    $("spot-info").textContent = sr.added === n ? `Spotlight added to all ${n} clip${n === 1 ? "" : "s"} (first 2 seconds of each).`
+      : `Spotlight added to ${sr.added} of ${n} clips.` +
+        (sr.noFollow ? ` ${sr.noFollow} clip${sr.noFollow === 1 ? " wasn't" : "s weren't"} from Follow my player, so KitReel didn't know where to put the ring.` : "") +
+        (sr.failed ? ` ${sr.failed} couldn't be added on this device${sr.lastError ? ` (${sr.lastError})` : ""}.` : "");
+  }
   renderClipDownloads();
   hideProgress();
   show("step-reel");
@@ -1004,6 +1013,8 @@ async function encodeReel(clips, W, H) {
   const AUDIO_OUT = ["-c:a", "aac", "-b:a", "128k", "-ar", "44100", "-ac", "2"];
   for (const u of state.clipBlobs) URL.revokeObjectURL(u.url);
   state.clipBlobs = [];
+  state.spotReport = { on: extras.spotlight, added: 0, noFollow: 0, failed: 0, lastError: "" };
+  const errLog = ({ message }) => { if (/error|invalid|no such|failed/i.test(message)) state.spotReport.lastError = message.slice(0, 200); };
 
   try {
     // Does the video have sound? Cards must match the clips (both with or both without audio).
@@ -1039,13 +1050,17 @@ async function encodeReel(clips, W, H) {
       const plain = ["-ss", c.start.toFixed(2), "-t", dur, "-i", input,
         "-map", "0:v:0", "-map", "0:a:0?", "-vf", base, ...VIDEO_OUT, ...AUDIO_OUT, out];
       let code = 1;
+      if (extras.spotlight && !spot) state.spotReport.noFollow++;
       if (spot) {
         // One ring image per size; overlay it at the player's feet for the first 2 seconds.
         const ringName = `ring-${spot.ringW}x${spot.ringH}.png`;
         if (ringReady !== ringName) { await writeCanvas(ringName, cv => drawRing(cv, spot.ringW, spot.ringH)); ringReady = ringName; }
+        ff.on("log", errLog);
         code = await ff.exec(["-ss", c.start.toFixed(2), "-t", dur, "-i", input, "-loop", "1", "-t", dur, "-i", ringName,
           "-filter_complex", `[0:v]${base}[v];[v][1:v]overlay=x='${spot.x}':y='${spot.y}':enable='lt(t,2)'[out]`,
           "-map", "[out]", "-map", "0:a:0?", ...VIDEO_OUT, ...AUDIO_OUT, out]);
+        ff.off("log", errLog);
+        if (code === 0) state.spotReport.added++; else state.spotReport.failed++;
       }
       if (code !== 0) code = await ff.exec(plain);                         // spotlight failed: plain clip
       if (code !== 0) code = await ff.exec(["-ss", c.start.toFixed(2), "-t", dur, "-i", input,  // panning failed: still crop
