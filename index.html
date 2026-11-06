@@ -5,27 +5,28 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>KitReel – Free Soccer Player Highlight Reels</title>
   <meta name="description" content="Turn a soccer game video into a highlight reel of one player. Pick the team, tag your player, download the reel. Free, no sign-up, and your video never leaves your device." />
-  <link rel="canonical" href="https://kitreel.replit.app/" />
+  <link rel="canonical" href="https://kitreel.nedwebservices.com/" />
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="KitReel" />
   <meta property="og:title" content="KitReel – Tag your player. Get their highlight reel." />
   <meta property="og:description" content="Turn a soccer game video into a highlight reel of one player. Pick the team, tag your player, download the reel. Free, no sign-up, and your video never leaves your device." />
-  <meta property="og:url" content="https://kitreel.replit.app/" />
-  <meta property="og:image" content="https://kitreel.replit.app/og-image-tag.png" />
+  <meta property="og:url" content="https://kitreel.nedwebservices.com/" />
+  <meta property="og:image" content="https://kitreel.nedwebservices.com/og-image-tag.png" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
   <meta property="og:image:alt" content="A phone showing a soccer player highlighted in a green box, next to player picks, with the KitReel logo" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="KitReel – Tag your player. Get their highlight reel." />
   <meta name="twitter:description" content="Turn a soccer game video into a highlight reel of one player. Pick the team, tag your player, download the reel. Free, no sign-up, and your video never leaves your device." />
-  <meta name="twitter:image" content="https://kitreel.replit.app/og-image-tag.png" />
+  <meta name="twitter:image" content="https://kitreel.nedwebservices.com/og-image-tag.png" />
   <meta name="theme-color" content="#0f1a14" />
+  <script async src="https://nedtraffic.replit.app/api/tracker.js" data-site="e013e81e-7692-495f-856e-81c981d48801"></script>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   <link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png" />
   <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
   <link rel="manifest" href="/site.webmanifest" />
   <!-- Bump ?v on both asset tags whenever app.js or style.css changes. -->
-  <link rel="stylesheet" href="/style.css?v=5" />
+  <link rel="stylesheet" href="/style.css?v=6" />
 </head>
 <body>
   <header>
@@ -148,9 +149,17 @@
           </select>
         </label>
         <button id="auto-pick" class="secondary" disabled>Follow my player</button>
+        <label class="inline action-toggle"><input type="checkbox" id="action-only" checked /> Only keep my player in action</label>
+        <label class="inline" id="closeness-wrap">How close to the ball
+          <select id="closeness">
+            <option value="tight">Tight</option>
+            <option value="normal" selected>Normal</option>
+            <option value="loose">Loose</option>
+          </select>
+        </label>
         <button id="clear-auto" class="ghost" hidden>Clear auto-picks</button>
       </div>
-      <p id="auto-hint" class="hint">Tap your player once in each play you want, then click Follow my player. KitReel follows until it loses them, the camera cuts, or the video ends.</p>
+      <p id="auto-hint" class="hint">Tap your player once in each play you want, then click Follow my player. KitReel follows until it loses them, the camera cuts, or the video ends, and keeps the moments they're on or near the ball.</p>
       <p id="crowd-status" class="hint" role="status" hidden></p>
       <p id="auto-result" class="hint" role="status" hidden></p>
       <p class="error" id="review-error"></p>
@@ -171,7 +180,7 @@
       <p class="hint" id="reel-info"></p>
       <div class="row">
         <a id="download" class="button primary" download="highlight-reel.mp4">Download</a>
-        <button id="share" class="secondary">Get a share link</button>
+        <button id="share" class="secondary" hidden>Share</button>
         <button id="clear" class="ghost">Clear everything</button>
       </div>
       <p class="hint" id="share-info"></p>
@@ -179,21 +188,19 @@
   </main>
 
   <footer>
-    <p>Only use videos you recorded or have permission to use. Share links expire automatically.</p>
+    <p>Only use videos you recorded or have permission to use.</p>
     <div class="footer-donation">
       <p>KitReel is free to use. Tips help keep it running.</p>
       <a class="button primary donate-button" href="https://www.nedairfilters.com/product/tipsanddonations/61" target="_blank" rel="noopener noreferrer">Donate</a>
     </div>
     <p class="site-credit">
       <span>KitReel by <a href="https://www.nedwebservices.com" target="_blank" rel="noopener noreferrer">Ned Web Services</a> (2026)</span>
-      <span id="footer-stats" class="footer-stats">v-—-uv-—-up-—-d-—</span>
     </p>
     <div data-ned-ads></div>
     <script async src="https://ads.nedwebservices.com/widget.js"></script>
   </footer>
 
   <!-- Bump ?v on both asset tags whenever app.js or style.css changes. -->
-  <script type="module" src="/footer-stats.js?v=1"></script>
-  <script type="module" src="/app.js?v=12"></script>
+  <script type="module" src="/app.js?v=13"></script>
 </body>
 </html>

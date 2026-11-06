@@ -148,3 +148,6 @@ a { color: var(--accent); word-break: break-all; }
   .drop-title { font-size: 1rem; }
 }
 .sticky-build { position: sticky; bottom: 0; background: var(--card); padding: 12px 0; padding-bottom: calc(12px + env(safe-area-inset-bottom)); display: flex; align-items: center; gap: 12px; flex-wrap: wrap; border-top: 1px solid var(--line); margin-top: 12px; }
+
+.action-toggle { gap: 6px; cursor: pointer; }
+.action-toggle input { width: 18px; height: 18px; accent-color: currentColor; }

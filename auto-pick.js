@@ -4,7 +4,7 @@ const clamp01 = n => Math.max(0, Math.min(1, n));
 export const isManualPick = m => m.picked !== null &&
   m.pickSource !== "auto" && m.pickSource !== "followed";
 
-export function clipsFor(moments, duration) {
+export function clipsFor(moments, duration, action = null) {
   const intervals = [];
   const picked = moments.filter(m => m.picked !== null).sort((a, b) => a.t - b.t);
   const activeTracks = new Set(picked.filter(isManualPick).map(m =>
@@ -15,6 +15,16 @@ export function clipsFor(moments, duration) {
 
     const track = m.track?.playerIndex === m.picked ? m.track : null;
     const tracked = track && track.end - track.start >= 4;
+    // "Only keep my player in action": a followed play becomes its action clips.
+    const act = action?.enabled && tracked && isManualPick(m) ? actionSegments(track, action, duration) : null;
+    if (act?.hasData) {
+      const excluded = moments.filter(x => x.autoExcluded).map(x => x.t);
+      for (const s of act.segments) {
+        if (excluded.some(t => t >= s.start && t <= s.end)) continue;   // the user unticked a moment in it
+        intervals.push({ start: s.start, end: s.end, cxs: s.cxs, cys: s.cys });
+      }
+      continue;
+    }
     const { start, end } = boundsFor(m, duration);
     const centers = tracked ? track.boxes.filter(b =>
       b.t >= track.start && b.t <= track.end).map(b => b.box) : [];
@@ -45,6 +55,103 @@ function boundsFor(moment, duration) {
   };
 }
 
+// ---------- "Only keep my player in action" ----------
+// Turns a followed track into short clips of the moments the player is on or near
+// the ball (or in a challenge), instead of the whole time they were followed.
+export const CLOSENESS = { tight: 1.0, normal: 1.5, loose: 2.5 };
+const LEAD = 2, TAIL = 1.5, MERGE_GAP = 2.5, MAX_BALL_GAP = 1.5;
+const segmentCache = new WeakMap();
+
+export function actionSegments(track, action, duration = Infinity) {
+  const limit = CLOSENESS[action?.closeness] ?? CLOSENESS.normal;
+  const key = `${limit}|${duration}`;
+  const cached = segmentCache.get(track);
+  if (cached?.key === key) return cached.result;
+
+  const steps = track.boxes.filter(b => b.found && b.t >= track.start && b.t <= track.end)
+    .sort((a, b) => a.t - b.t);
+  const result = { segments: [], ballRatio: 0, fallback: false, hasData: steps.some(s => "near" in s) };
+  if (!steps.length || !result.hasData) {
+    segmentCache.set(track, { key, result });
+    return result;
+  }
+
+  // Ball distance per step; fill gaps of up to 1.5 s by sliding between the two sightings.
+  const dist = steps.map(s => s.ball ? s.ball.d : null);
+  const seen = dist.filter(d => d !== null).length;
+  result.ballRatio = seen / steps.length;
+  for (let i = 0; i < steps.length; i++) {
+    if (dist[i] !== null) continue;
+    let p = i - 1, n = i + 1;
+    while (p >= 0 && !steps[p].ball) p--;
+    while (n < steps.length && !steps[n].ball) n++;
+    if (p < 0 || n >= steps.length || !steps[p].ball || steps[n].t - steps[p].t > MAX_BALL_GAP) continue;
+    const f = (steps[i].t - steps[p].t) / (steps[n].t - steps[p].t);
+    const bx = steps[p].ball.x + (steps[n].ball.x - steps[p].ball.x) * f;
+    const by = steps[p].ball.y + (steps[n].ball.y - steps[p].ball.y) * f;
+    const [x0, y0, x1, y1] = steps[i].box, h = (y1 - y0) || 1e-6;
+    dist[i] = Math.hypot(Math.max(x0 - bx, 0, bx - x1) * (action?.aspect || 1), Math.max(y0 - by, 0, by - y1)) / h;
+  }
+
+  // Speed in player-heights per second, to spot sudden bursts (tackles, sprints to the ball).
+  const speed = steps.map((s, i) => {
+    const q = steps[i ? i - 1 : Math.min(1, steps.length - 1)];
+    const dt = Math.abs(s.t - q.t) || 1;
+    const h = (s.box[3] - s.box[1]) || 1e-6;
+    const dx = ((s.box[0] + s.box[2]) - (q.box[0] + q.box[2])) / 2 * (action?.aspect || 1);
+    const dy = ((s.box[1] + s.box[3]) - (q.box[1] + q.box[3])) / 2;
+    return Math.hypot(dx, dy) / h / dt;
+  });
+  const avgSpeed = speed.reduce((a, b) => a + b, 0) / speed.length || 0;
+
+  result.fallback = result.ballRatio < 0.15;
+  const reasons = steps.map((s, i) => {
+    const challenge = s.near >= 1 && speed[i] > Math.max(2 * avgSpeed, 0.5);
+    if (!result.fallback && dist[i] !== null && dist[i] <= Math.min(0.3, limit)) return "On the ball";
+    if (!result.fallback && dist[i] !== null && dist[i] <= limit) return "Near the ball";
+    if (challenge) return "Challenge";
+    if (result.fallback && s.cluster >= 3) return "In the action";
+    return null;
+  });
+
+  // Group involved steps into runs, merge close runs, then add a lead-in and follow-through.
+  const RANK = { "On the ball": 4, "Challenge": 3, "Near the ball": 2, "In the action": 1 };
+  let runs = [];
+  for (let i = 0; i < steps.length; i++) {
+    if (!reasons[i]) continue;
+    const last = runs.at(-1);
+    if (last && steps[i].t - last.end <= 0.75) { last.end = steps[i].t; last.idx.push(i); }
+    else runs.push({ start: steps[i].t, end: steps[i].t, idx: [i] });
+  }
+  const merged = [];
+  for (const run of runs) {
+    const last = merged.at(-1);
+    if (last && run.start - last.end < MERGE_GAP) { last.end = run.end; last.idx.push(...run.idx); }
+    else merged.push(run);
+  }
+  for (const run of merged) {
+    const best = run.idx.map(i => reasons[i]).sort((a, b) => RANK[b] - RANK[a])[0];
+    if (run.end - run.start + 0.5 < 1 && best !== "On the ball" && best !== "Challenge") continue;   // too brief to matter
+    const boxes = run.idx.map(i => steps[i].box);
+    result.segments.push({
+      start: Math.max(0, run.start - LEAD), end: Math.min(duration, run.end + TAIL),
+      reason: best,
+      cxs: boxes.map(b => (b[0] + b[2]) / 2), cys: boxes.map(b => (b[1] + b[3]) / 2),
+    });
+  }
+  // Padding can make neighbours touch; join them so clips never overlap.
+  result.segments = result.segments.reduce((out, s) => {
+    const last = out.at(-1);
+    if (last && s.start <= last.end) {
+      last.end = Math.max(last.end, s.end); last.cxs.push(...s.cxs); last.cys.push(...s.cys);
+      if (RANK[s.reason] > RANK[last.reason]) last.reason = s.reason;
+    } else out.push(s);
+    return out;
+  }, []);
+  segmentCache.set(track, { key, result });
+  return result;
+}
+
 export const clipSeconds = clips => clips.reduce((s, c) => s + c.end - c.start, 0);
 
 export function isCameraCut(a, b) {
@@ -71,8 +178,10 @@ export function scoreHighlight(moment, index, loudness = null, aspect = 1) {
     score: clamp01(0.4 * ball + 0.3 * crowd + 0.2 * closeness + 0.1) };
 }
 
-export function applyFollowedTracks(moments, tracks, { loudness, aspect, duration = Infinity } = {}) {
+export function applyFollowedTracks(moments, tracks, { loudness, aspect, duration = Infinity, action = null } = {}) {
   clearAutomatic(moments);
+  const segmentsOf = new Map(action?.enabled ? tracks.map(tr =>
+    [tr, actionSegments(tr, action, duration)]) : []);
   const spans = new Map(moments.filter(isManualPick).filter(m =>
     m.track?.playerIndex === m.picked).map(m =>
     [m.track, boundsFor(m, duration)]));
@@ -84,6 +193,12 @@ export function applyFollowedTracks(moments, tracks, { loudness, aspect, duratio
       if (moment.t < track.start || moment.t > track.end) continue;
       const span = spans.get(track);
       if (span && (moment.t < span.start || moment.t > span.end)) continue;
+      let reason = null;
+      if (action?.enabled && segmentsOf.get(track)?.hasData) {
+        const seg = segmentsOf.get(track).segments.find(s => moment.t >= s.start && moment.t <= s.end);
+        if (!seg) continue;            // player not in action at this moment
+        reason = seg.reason;
+      }
       const actual = track.boxes.filter(item => item.t >= track.start && item.t <= track.end);
       if (!actual.length) continue;
       const nearest = actual.reduce((best, item) =>
@@ -91,7 +206,7 @@ export function applyFollowedTracks(moments, tracks, { loudness, aspect, duratio
       const target = nearest.box;
       moment.players.forEach((player, index) => {
         const distance = boxCenterDistance(player.box, target, aspect);
-        choices.push({ index, track, distance });
+        choices.push({ index, track, distance, reason });
       });
     }
     choices.sort((a, b) => a.distance - b.distance);
@@ -100,14 +215,14 @@ export function applyFollowedTracks(moments, tracks, { loudness, aspect, duratio
     moment.picked = choice.index;
     moment.pickSource = "followed";
     moment.followedTrack = choice.track;
-    moment.autoInfo = scoreHighlight(moment, choice.index, loudness, aspect);
+    moment.autoInfo = { ...scoreHighlight(moment, choice.index, loudness, aspect), reason: choice.reason };
     moment.highlightScore = moment.autoInfo.score;
   }
 }
 
-export function budgetTracks(moments, { duration, maxSeconds }) {
+export function budgetTracks(moments, { duration, maxSeconds, action = null }) {
   for (const moment of moments) moment.trackClip = null;
-  const seconds = () => clipSeconds(clipsFor(moments, duration));
+  const seconds = () => clipSeconds(clipsFor(moments, duration, action));
   const total = seconds();
   return { seconds: total, fits: total <= maxSeconds };
 }

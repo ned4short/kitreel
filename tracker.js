@@ -5,10 +5,12 @@ export async function trackPlayer({
   moment, playerIndex, duration, target, threshold, aspect,
   seek, drawFrame, detectPeople, torsoMatch, normalizeBox, describe,
   frameSignature, isCameraCut, waitUntilVisible, seekAndDrawFrame, onStep = () => {},
+  detectBallNear = null,
 }) {
   const seed = moment.players[playerIndex];
   if (!seed) throw new Error("Choose a player before following them.");
-  const boxes = [{ t: moment.t, box: seed.box, found: true }];
+  const boxes = [{ t: moment.t, box: seed.box, found: true,
+    ...surroundings(seed.box, moment.players.map(p => p.box), moment.balls || [], aspect) }];
   const ends = [moment.t];
   const directions = [1, -1];
   const readFrame = seekAndDrawFrame || (async (t) => {
@@ -86,7 +88,13 @@ export async function trackPlayer({
 
       found = candidates[0] || null;
       if (found) {
-        boxes.push({ t, box: found.box, found: true });
+        // Ball and nearby players around the tracked player, for "only keep my player in action".
+        let balls = (detections.balls || []).slice();
+        if (detectBallNear) {
+          try { balls = balls.concat(await detectBallNear(found.box)); } catch {}
+        }
+        const others = detections.map(normalizeBox);
+        boxes.push({ t, box: found.box, found: true, ...surroundings(found.box, others, balls, aspect) });
         velocity = found.box.map((v, i) => v - previousBox[i]);
         previousBox = found.box;
         ends.push(t);
@@ -108,6 +116,32 @@ export async function trackPlayer({
     boxes,
     playerIndex,
   };
+}
+
+// What's around the tracked player at one step: the nearest ball (in player-heights,
+// 0 = touching the box) and how many other people are close by.
+function surroundings(box, others, balls, aspect) {
+  const h = box[3] - box[1] || 1e-6;
+  let ball = null;
+  for (const b of balls) {
+    const d = Math.hypot(Math.max(box[0] - b.x, 0, b.x - box[2]) * aspect,
+      Math.max(box[1] - b.y, 0, b.y - box[3])) / h;
+    if (ball === null || d < ball.d) ball = { x: b.x, y: b.y, d };
+  }
+  let near = 0, cluster = 0;
+  for (const o of others) {
+    if (iou(o, box) > 0.6) continue;              // that's the tracked player
+    const gap = edgeGap(o, box, aspect) / h;
+    if (gap <= 0.5) near++;
+    if (gap <= 2) cluster++;
+  }
+  return { ball, near, cluster };
+}
+
+function edgeGap(a, b, aspect) {
+  const dx = Math.max(0, a[0] - b[2], b[0] - a[2]) * aspect;
+  const dy = Math.max(0, a[1] - b[3], b[1] - a[3]);
+  return Math.hypot(dx, dy);
 }
 
 function similarity(a, b) {

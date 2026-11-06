@@ -2,9 +2,9 @@
 // a player detector (TensorFlow.js) finds people in the chosen kit color,
 // the user taps their player, and ffmpeg.wasm cuts the reel.
 import { createWorkSession } from "/work-session.js";
-import { applyFollowedTracks, budgetTracks, clearAutomatic, clipsFor, isCameraCut, isManualPick } from "/auto-pick.js?v=2";
+import { actionSegments, applyFollowedTracks, budgetTracks, clearAutomatic, clipsFor, isCameraCut, isManualPick } from "/auto-pick.js?v=3";
 import { createCrowdTask } from "/crowd-noise.js";
-import { trackPlayer } from "/tracker.js?v=2";
+import { trackPlayer } from "/tracker.js?v=3";
 
 const $ = (id) => document.getElementById(id);
 const PAGE = 30;            // moments shown per "Show more"
@@ -16,7 +16,9 @@ const state = {
   teamChosen: false,
   moments: [], shown: PAGE, reelBlob: null, reelUrl: null, ffmpeg: null, ffmpegPromise: null,
   loudness: null, cancelCrowd: null, editorQueue: Promise.resolve(), followRan: false, scanInterval: 3,
+  action: { enabled: true, closeness: "normal" },   // "Only keep my player in action"
 };
+const actionOpts = () => ({ ...state.action, aspect: state.width / state.height || 16 / 9 });
 
 // Hidden helpers for grabbing frames
 const grabber = document.createElement("video");
@@ -59,6 +61,15 @@ async function init() {
   $("sort").addEventListener("change", () => { state.shown = PAGE; renderMoments(); });
   $("auto-pick").addEventListener("click", () => run(followPlayer, "review-error"));
   $("clear-auto").addEventListener("click", clearAutoPicks);
+  const onActionChange = () => {
+    state.action.enabled = $("action-only").checked;
+    state.action.closeness = $("closeness").value;
+    $("closeness-wrap").hidden = !state.action.enabled;
+    if (workSession.running) return;
+    updatePickInfo(); renderMoments(); updateAutoResult();
+  };
+  $("action-only").addEventListener("change", onActionChange);
+  $("closeness").addEventListener("change", onActionChange);
   $("more").addEventListener("click", () => { state.shown += PAGE; renderMoments(); });
   $("build").addEventListener("click", () => run(buildReel, "review-error"));
   $("share").addEventListener("click", () => run(shareReel, "share-info"));
@@ -68,12 +79,8 @@ async function init() {
   updateLimitsDisplay();
   // A native label can open the picker even before this module has loaded.
   if ($("file").files?.length) void onFile({ target: $("file") });
-  // Network settings must never delay registration of the upload controls.
-  try {
-    const cfg = await (await fetch("/api/config")).json();
-    Object.assign(state.limits, cfg);
-    updateLimitsDisplay();
-  } catch {}
+  // GitHub version: limits are fixed in state.limits (there's no server to ask).
+  $("share").hidden = !canShareFiles();
 }
 
 async function run(fn, errId) {
@@ -548,6 +555,23 @@ async function detectPeople(model) {
   kept.balls = balls;
   return kept;
 }
+// Look for the ball close to one player. The ball is tiny in wide game footage, so
+// crop a square about 4 player-heights wide around them and scale it up first.
+async function detectBallNear(model, box) {
+  const W = frameCv.width, H = frameCv.height;
+  const ph = (box[3] - box[1]) * H;
+  const side = Math.min(Math.max(ph * 4, 160), W, H);
+  const cx = (box[0] + box[2]) / 2 * W, cy = (box[1] + box[3]) / 2 * H;
+  const x = Math.round(clamp(cx - side / 2, 0, W - side)), y = Math.round(clamp(cy - side / 2, 0, H - side));
+  const S = 640;
+  tmpCv.width = S; tmpCv.height = S;
+  tmpCtx.drawImage(frameCv, x, y, side, side, 0, 0, S, S);
+  const dets = await model.detect(tmpCv, 20, 0.2);
+  return dets.filter(d => d.class === "sports ball" && d.score >= 0.25).map(d => {
+    const [bx, by, bw, bh] = d.bbox;
+    return { x: (x + (bx + bw / 2) * side / S) / W, y: (y + (by + bh / 2) * side / S) / H };
+  });
+}
 function frameSignature() {
   tmpCv.width = 16; tmpCv.height = 9;
   tmpCtx.drawImage(frameCv, 0, 0, 16, 9);
@@ -665,6 +689,7 @@ function renderMoments() {
   $("more").textContent = `Show more moments (${list.length - Math.min(state.shown, list.length)} left)`;
 }
 
+const REASON_ICON = { "On the ball": "⚽", "Near the ball": "⚽", "Challenge": "💥", "In the action": "🏃" };
 function momentCard(m) {
   const card = document.createElement("div");
   card.className = "moment" + (m.picked !== null ? " picked" : "");
@@ -677,7 +702,8 @@ function momentCard(m) {
     if (m.picked === i && (m.pickSource === "auto" || m.pickSource === "followed")) {
       const tag = document.createElement("span");
       tag.className = "auto-tag";
-      tag.textContent = `${m.pickSource === "followed" ? "Followed" : "Auto"}${m.autoInfo?.ball >= 0.5 ? " ⚽" : ""}${m.autoInfo?.crowd >= 0.6 ? " 📣" : ""}`;
+      tag.textContent = m.autoInfo?.reason ? `${REASON_ICON[m.autoInfo.reason] || ""} ${m.autoInfo.reason}`
+        : `${m.pickSource === "followed" ? "Followed" : "Auto"}${m.autoInfo?.ball >= 0.5 ? " ⚽" : ""}${m.autoInfo?.crowd >= 0.6 ? " 📣" : ""}`;
       b.appendChild(tag);
     }
     b.onclick = () => togglePick(m, i, card);
@@ -687,9 +713,12 @@ function momentCard(m) {
     const note = document.createElement("p");
     note.className = "follow-note";
     const followedSeconds = m.track.end - m.track.start;
-    note.textContent = followedSeconds >= 4
-      ? `Followed ${fmt(m.track.start)}–${fmt(m.track.end)} (${Math.round(followedSeconds)}s)`
-      : "Couldn't follow — keeping up to 20s around this moment";
+    const act = state.action.enabled && followedSeconds >= 4 ? actionSegments(m.track, actionOpts(), state.duration) : null;
+    note.textContent = followedSeconds < 4
+      ? "Couldn't follow — keeping up to 20s around this moment"
+      : act?.hasData
+        ? `Followed ${fmt(m.track.start)}–${fmt(m.track.end)} · ${act.segments.length} action clip${act.segments.length === 1 ? "" : "s"} (${Math.round(act.segments.reduce((s, c) => s + c.end - c.start, 0))}s)`
+        : `Followed ${fmt(m.track.start)}–${fmt(m.track.end)} (${Math.round(followedSeconds)}s)`;
     card.querySelector(".moment-content").appendChild(note);
   }
   return card;
@@ -724,7 +753,7 @@ function togglePick(m, i, card) {
 }
 
 function makeClips() {
-  return clipsFor(state.moments, state.duration);
+  return clipsFor(state.moments, state.duration, actionOpts());
 }
 function reelSeconds() { return makeClips().reduce((s, c) => s + c.end - c.start, 0); }
 function updatePickInfo() {
@@ -741,7 +770,17 @@ function updateAutoResult() {
   const count = state.moments.filter(m => m.pickSource === "followed").length;
   const plays = state.moments.filter(m => isManualPick(m) &&
     m.track?.playerIndex === m.picked && m.track.end - m.track.start >= 4).length;
-  $("auto-result").textContent = `Followed your player through ${plays} plays (${fmt(reelSeconds())} total). Check the tagged moments and untick any that aren't them.`;
+  const tracks = state.moments.filter(m => isManualPick(m) && m.track?.playerIndex === m.picked &&
+    m.track.end - m.track.start >= 4).map(m => actionSegments(m.track, actionOpts(), state.duration));
+  const withData = tracks.filter(r => r.hasData);
+  if (state.action.enabled && withData.length) {
+    const clips = withData.reduce((n, r) => n + r.segments.length, 0);
+    const hardToSee = withData.some(r => r.fallback);
+    $("auto-result").textContent = `Followed your player through ${plays} play${plays === 1 ? "" : "s"} and kept ${clips} action clip${clips === 1 ? "" : "s"} (${fmt(reelSeconds())} total). Untick any tagged moment to drop that clip.` +
+      (hardToSee ? " The ball is hard to see in this video, so clips are based on where the action is. A steadier, closer video gives better results." : "");
+  } else {
+    $("auto-result").textContent = `Followed your player through ${plays} plays (${fmt(reelSeconds())} total). Check the tagged moments and untick any that aren't them.`;
+  }
   $("auto-result").hidden = false;
   $("clear-auto").hidden = !count;
 }
@@ -752,7 +791,7 @@ async function followPlayer() {
   const kitColor = $("kit-color").value;
   const usualThreshold = target.s < 0.4 ? 0.3 : 0.2;
   const aspect = state.width / state.height;
-  showProgress("Following your player…");
+  showProgress("Following your player and finding ball touches…");
   const estimate = workSession.startEstimate();
   const plannedSteps = taps.map(moment => {
     if (moment.track?.playerIndex === moment.picked && moment.track?.kitColor === kitColor) return 0;
@@ -769,7 +808,7 @@ async function followPlayer() {
     const progress = (step = 0, total = 1) => {
       const fraction = Math.min(1, step / total);
       setProgress(((i + fraction) / taps.length) * 100,
-        `Following your player · play ${i + 1} of ${taps.length}`,
+        `Following your player and finding ball touches · play ${i + 1} of ${taps.length}`,
         estimate(completedFrames, completedFrames + remainingSteps.reduce((sum, n) => sum + n, 0)));
     };
     progress();
@@ -781,6 +820,7 @@ async function followPlayer() {
         torsoMatch, normalizeBox: normBox, describe, frameSignature, isCameraCut,
         waitUntilVisible: () => workSession.waitUntilVisible(),
         seekAndDrawFrame: (t, previous) => seekDrawFrame(t, previous),
+        detectBallNear: (box) => detectBallNear(state.model, box),
         onStep: () => {
           completedFrames++;
           remainingSteps[i] = Math.max(0, remainingSteps[i] - 1);
@@ -815,11 +855,13 @@ function fitFollowedClips() {
   if (state.followRan) clearAutomatic(state.moments);
   const result = budgetTracks(state.moments, {
     duration: state.duration, maxSeconds: max, loudness: state.loudness, aspect: state.width / state.height,
+    action: actionOpts(),
   });
   if (state.followRan) applyFollowedTracks(state.moments,
     state.moments.filter(m => isManualPick(m) && m.track?.playerIndex === m.picked)
       .map(m => m.track), {
       duration: state.duration, loudness: state.loudness, aspect: state.width / state.height,
+      action: actionOpts(),
     });
   const errorText = "Your picks add up to more than the max reel length. Raise it or untick some moments.";
   if (result.fits) {
@@ -945,16 +987,24 @@ function cropFor(c, ratio) {
 }
 
 // ---------- share / clear ----------
+// GitHub version: no upload server, so sharing hands the video file straight to the
+// device's share sheet (Messages, WhatsApp, email, AirDrop…). Hidden where unsupported.
+function canShareFiles() {
+  try {
+    return Boolean(navigator.canShare && navigator.canShare({
+      files: [new File([new Blob()], "reel.mp4", { type: "video/mp4" })] }));
+  } catch { return false; }
+}
 async function shareReel() {
   if (!state.reelBlob) return;
-  $("share-info").textContent = "Uploading…";
-  const res = await fetch("/api/share", { method: "POST", headers: { "content-type": "video/mp4" }, body: state.reelBlob });
-  const json = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(json.error || "Couldn't create a share link.");
-  const link = new URL(json.url, location.href).href;
-  const exp = new Date(json.expiresAt).toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
-  $("share-info").innerHTML = `Share link (deleted ${exp}): <a href="${link}">${link}</a>`;
-  try { await navigator.clipboard.writeText(link); $("share-info").innerHTML += " — copied!"; } catch {}
+  const file = new File([state.reelBlob], "highlight-reel.mp4", { type: "video/mp4" });
+  try {
+    await navigator.share({ files: [file], title: "Highlight reel", text: "Made with KitReel: https://kitreel.nedwebservices.com" });
+    $("share-info").textContent = "";
+  } catch (e) {
+    if (e && e.name === "AbortError") return;
+    throw new Error("Sharing isn't available here. Use Download instead, then share the file.");
+  }
 }
 
 function clearAll() {
