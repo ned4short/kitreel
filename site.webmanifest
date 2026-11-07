@@ -1,7 +1,10 @@
 {
+  "id": "/",
   "name": "KitReel 2.0",
   "short_name": "KitReel 2.0",
+  "description": "Turn a soccer game video into a highlight reel of one player. Free, and your video never leaves your device.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#0b1110",
   "theme_color": "#0b1110",
@@ -15,6 +18,12 @@
       "src": "/icon-512.png?v=3",
       "sizes": "512x512",
       "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png?v=3",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }
