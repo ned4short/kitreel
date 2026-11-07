@@ -1,0 +1,82 @@
+/* KitReel 2026 look: night-pitch background, electric lime, condensed sports headings. */
+@font-face { font-family: "Barlow Condensed"; font-weight: 700; font-display: swap; src: url("/fonts/barlow-condensed-latin-700-normal.woff2") format("woff2"); }
+@font-face { font-family: "Barlow Condensed"; font-weight: 800; font-display: swap; src: url("/fonts/barlow-condensed-latin-800-normal.woff2") format("woff2"); }
+@font-face { font-family: "Inter"; font-weight: 400; font-display: swap; src: url("/fonts/inter-latin-400-normal.woff2") format("woff2"); }
+@font-face { font-family: "Inter"; font-weight: 600; font-display: swap; src: url("/fonts/inter-latin-600-normal.woff2") format("woff2"); }
+@font-face { font-family: "Inter"; font-weight: 700; font-display: swap; src: url("/fonts/inter-latin-700-normal.woff2") format("woff2"); }
+
+:root {
+  --bg: #0b1110;
+  --card: rgba(22, 31, 28, .78);
+  --card-solid: #141c1a;
+  --line: rgba(255, 255, 255, .09);
+  --text: #f2f6f3;
+  --muted: #95a59d;
+  --accent: #c6ff3d;
+  --accent-ink: #0b1110;
+  --gold: #ffd600;
+  --display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", system-ui, sans-serif;
+}
+body {
+  font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background:
+    radial-gradient(1200px 520px at 50% -180px, rgba(198, 255, 61, .10), transparent 70%),
+    radial-gradient(circle at 50% 420px, transparent 159px, rgba(255,255,255,.035) 160px, rgba(255,255,255,.035) 161px, transparent 162px),
+    linear-gradient(to bottom, transparent 419px, rgba(255,255,255,.035) 420px, rgba(255,255,255,.035) 421px, transparent 422px),
+    var(--bg);
+  background-attachment: scroll;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Header */
+header { padding-top: 34px; }
+header h1 { display: flex; align-items: center; gap: 10px; font-family: var(--display); font-weight: 800; font-size: 1.9rem; letter-spacing: .01em; text-transform: uppercase; }
+.brand-mark { width: 36px; height: 36px; border-radius: 10px; content: url("/icon-lime-192.png"); }
+.headline { margin: 18px 0 8px !important; font-family: var(--display); font-weight: 800; text-transform: uppercase;
+  font-size: clamp(2.4rem, 8vw, 3.9rem); line-height: .95; letter-spacing: .005em; color: var(--text) !important; }
+.headline span { display: block; color: var(--accent); }
+header p { max-width: 38em; }
+
+/* Progress stepper */
+header .how-it-works { margin: 22px 0 22px; }
+.stepper { display: grid !important; grid-template-columns: repeat(5, 1fr) !important; gap: 6px !important; counter-reset: none; }
+.stepper li { flex-direction: column; align-items: flex-start !important; gap: 8px !important; font-size: .8rem !important; font-weight: 600;
+  color: var(--muted); text-transform: uppercase; letter-spacing: .06em; padding-top: 10px; border-top: 3px solid rgba(255,255,255,.12); transition: border-color .3s, color .3s; }
+.stepper .how-number { display: none; }
+.stepper li.done { border-top-color: color-mix(in srgb, var(--accent) 55%, transparent); color: var(--text); }
+.stepper li.active { border-top-color: var(--accent); color: var(--accent); }
+
+/* Cards */
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 22px;
+  box-shadow: 0 1px 0 rgba(255,255,255,.04) inset, 0 20px 40px -24px rgba(0,0,0,.6); backdrop-filter: blur(6px); }
+.card h2 { font-family: var(--display); font-weight: 700; font-size: 1.55rem; text-transform: uppercase; letter-spacing: .02em; gap: 12px; }
+.num { width: 30px; height: 30px; border-radius: 9px; font-family: var(--display); font-size: 1.05rem; font-weight: 800;
+  background: var(--accent); color: var(--accent-ink); }
+
+/* Buttons and inputs */
+button, .button { border-radius: 999px; font-weight: 700; transition: transform .12s ease, background-color .2s, box-shadow .2s, border-color .2s; }
+button:not(:disabled):hover, .button:hover { transform: translateY(-1px); }
+button:not(:disabled):active, .button:active { transform: translateY(0) scale(.98); }
+.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink);
+  box-shadow: 0 8px 24px -10px rgba(198, 255, 61, .55); }
+.primary:not(:disabled):hover { box-shadow: 0 10px 28px -8px rgba(198, 255, 61, .7); }
+.secondary { border-color: rgba(255,255,255,.22); }
+.secondary:not(:disabled):hover { border-color: var(--accent); color: var(--accent); }
+input, select { border-radius: 12px; border-color: rgba(255,255,255,.14); background: rgba(0,0,0,.25); }
+input:focus, select:focus, button:focus-visible, .drop-zone:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.drop-zone { border-radius: 18px; border-color: rgba(198,255,61,.35); background: rgba(198,255,61,.04); }
+.drop-zone:hover, .drop-zone.dragover { border-color: var(--accent); background: rgba(198,255,61,.08); }
+.chip.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset, 0 0 18px -6px rgba(198,255,61,.6); }
+
+/* Clip reasons and highlights use the spotlight gold */
+.clip-reason, .tag { color: var(--gold); }
+.tip-box { background: rgba(255, 214, 0, .07); border-color: rgba(255, 214, 0, .35); }
+.extras { border-color: var(--line); border-radius: 16px; }
+.clip-row { border-radius: 14px; }
+video { border-radius: 14px; }
+
+@media (max-width: 560px) {
+  .stepper li { font-size: .68rem !important; letter-spacing: .03em; }
+  .card { padding: 18px; border-radius: 18px; }
+}
+@media (prefers-reduced-motion: reduce) { button, .button { transition: none; } }

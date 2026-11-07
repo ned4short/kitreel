@@ -27,22 +27,26 @@
   <link rel="manifest" href="/site.webmanifest" />
   <!-- Bump ?v on both asset tags whenever app.js or style.css changes. -->
   <link rel="stylesheet" href="/style.css?v=8" />
+  <link rel="preload" href="/fonts/barlow-condensed-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="stylesheet" href="/theme.css?v=1" />
 </head>
 <body>
   <header>
     <div class="header-inner">
       <div class="brand">
-        <h1>KitReel</h1>
-        <p>Upload game video, pick a team, tag your player, and get their highlight reel.</p>
+        <h1><img class="brand-mark" src="/icon-192.png" width="40" height="40" alt="" />KitReel</h1>
+        <p class="headline">Tag your player. <span>Get their reel.</span></p>
+        <p>Upload game video, pick a team, tag your player, and get their highlight reel. Free, and your video never leaves your device.</p>
       </div>
     </div>
     <section class="how-it-works" aria-labelledby="how-title">
-      <h2 id="how-title">How it works</h2>
-      <ol>
-        <li><span class="how-number">1</span><span>Upload game video</span></li>
-        <li><span class="how-number">2</span><span>Pick the team color</span></li>
-        <li><span class="how-number">3</span><span>Tag your player</span></li>
-        <li><span class="how-number">4</span><span>Download your reel</span></li>
+      <h2 id="how-title" class="visually-hidden">How it works</h2>
+      <ol class="stepper" id="stepper">
+        <li data-step="step-video"><span class="how-number">1</span><span>Upload</span></li>
+        <li data-step="step-player"><span class="how-number">2</span><span>Team</span></li>
+        <li data-step="step-options"><span class="how-number">3</span><span>Options</span></li>
+        <li data-step="step-review"><span class="how-number">4</span><span>Tag</span></li>
+        <li data-step="step-reel"><span class="how-number">5</span><span>Reel</span></li>
       </ol>
     </section>
   </header>
@@ -54,7 +58,7 @@
         <p>Tip: KitReel works best on a computer with Chrome or Edge. Choose videos up to 4 GB and 101 minutes on a computer (phones: 500 MB and 20 minutes). If you use a phone, keep this tab open and your screen on while it runs.</p>
         <button type="button" id="dismiss-device-tip" aria-label="Dismiss tip">×</button>
       </div>
-      <h2>Upload game video</h2>
+      <h2><span class="num">1</span> Upload game video</h2>
       <p class="hint">Up to <b id="lim-mb">4</b> <span id="lim-unit">GB</span> and <b id="lim-min">101</b> minutes. Your video stays on your device — it's never uploaded.</p>
       <input type="file" id="file" accept="video/*" class="visually-hidden" aria-label="Upload game video file" />
       <label for="file" id="drop-zone" class="drop-zone" role="button" tabindex="0" aria-controls="file" aria-label="Upload game video">
@@ -236,5 +240,6 @@
 
   <!-- Bump ?v on both asset tags whenever app.js or style.css changes. -->
   <script type="module" src="/app.js?v=15"></script>
+  <script src="/theme.js?v=1" defer></script>
 </body>
 </html>
