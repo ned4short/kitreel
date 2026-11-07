@@ -5,7 +5,7 @@ export async function trackPlayer({
   moment, playerIndex, duration, target, threshold, aspect,
   seek, drawFrame, detectPeople, torsoMatch, normalizeBox, describe,
   frameSignature, isCameraCut, waitUntilVisible, seekAndDrawFrame, onStep = () => {},
-  detectBallNear = null,
+  detectBallNear = null, isCovered = null,
 }) {
   const seed = moment.players[playerIndex];
   if (!seed) throw new Error("Choose a player before following them.");
@@ -29,6 +29,7 @@ export async function trackPlayer({
     for (let n = 1; ; n++) {
       const t = Math.round((moment.t + direction * n * STEP) * 100) / 100;
       if (t < 0 || t >= duration) break;
+      if (isCovered && n > 2 && isCovered(t)) break;   // already followed from another tag
       const predicted = clampBox(previousBox.map((v, i) => v + velocity[i]));
       let found = null;
       let signature = null;

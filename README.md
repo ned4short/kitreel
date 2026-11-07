@@ -16,3 +16,8 @@ Reel extras (GitHub version):
 - Title card (player number, name, team, game date) and a "Made with KitReel" end card, 2.5 s each.
 - "Your clips" panel: preview, trim (±1 s) or remove each clip before making the reel; after the reel, each clip can be downloaded on its own.
 - Tip prompt after the reel is made.
+
+Find my player in the rest of the game (on by default, next to Follow my player):
+- After following the tagged plays, KitReel looks in the stretches it didn't cover for the teammate who looks most like the tagged player (`refind.js`). It first checks, on frames where it already knows who the player is, how reliably looks alone pick them out in this video; only then does it follow new matches automatically.
+- Jersey numbers are read in the browser with Tesseract.js (digits only, `jersey-ocr.js`, files in `vendor/tesseract/`) when a number was entered in step 2. A readable matching number makes a match sure; a clearly different number rules it out.
+- Anything unsure becomes an "Is this your player?" card. Yes follows them from there and looks again; No teaches KitReel what the wrong player looks like.

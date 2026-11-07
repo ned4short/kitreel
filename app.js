@@ -4,8 +4,10 @@
 import { createWorkSession } from "/work-session.js";
 import { actionSegments, applyFollowedTracks, budgetTracks, clearAutomatic, clipsFor, isCameraCut, isManualPick } from "/auto-pick.js?v=3";
 import { createCrowdTask } from "/crowd-noise.js";
-import { trackPlayer } from "/tracker.js?v=3";
+import { trackPlayer } from "/tracker.js?v=4";
 import { cameraFor, cropFilter, spotlightFor, drawRing, drawCard, silentWav } from "/reel-fx.js?v=1";
+import { learnLook, candidatesInGaps, verdictFor, coveredSpans, isCoveredBy } from "/refind.js?v=1";
+import { numberVerdict } from "/jersey-ocr.js?v=1";
 
 const $ = (id) => document.getElementById(id);
 const PAGE = 30;            // moments shown per "Show more"
@@ -20,6 +22,10 @@ const state = {
   action: { enabled: true, closeness: "normal" },   // "Only keep my player in action"
   clipEdits: {},          // per-clip trims/removals, keyed by the clip's original start–end
   clipBlobs: [],          // finished single clips, for "Download clips one by one"
+  questions: [],          // "Is this your player?" candidates
+  askedKeys: new Set(),   // candidates already answered or skipped
+  rejectedDescs: [],      // looks of players the user said "no" to
+  refindFound: 0,
 };
 const actionOpts = () => ({ ...state.action, aspect: state.width / state.height || 16 / 9 });
 
@@ -98,7 +104,7 @@ async function run(fn, errId) {
   if (fn === findTeams || fn === scan || fn === buildReel || fn === followPlayer) cancelCrowdNoise();
   $(errId).textContent = "";
   setBusy(true);
-  const protectWork = fn === findTeams || fn === scan || fn === buildReel || fn === followPlayer;
+  const protectWork = fn === findTeams || fn === scan || fn === buildReel || fn === followPlayer || fn.protectWork;
   try {
     if (protectWork) workSession.start();
     await fn();
@@ -716,6 +722,12 @@ function momentCard(m) {
         : `${m.pickSource === "followed" ? "Followed" : "Auto"}${m.autoInfo?.ball >= 0.5 ? " ⚽" : ""}${m.autoInfo?.crowd >= 0.6 ? " 📣" : ""}`;
       b.appendChild(tag);
     }
+    if (m.picked === i && (m.pickSource === "matched" || m.pickSource === "confirmed")) {
+      const tag = document.createElement("span");
+      tag.className = "auto-tag";
+      tag.textContent = m.pickSource === "matched" ? "🔎 Found" : "✓ Confirmed";
+      b.appendChild(tag);
+    }
     b.onclick = () => togglePick(m, i, card);
     row.appendChild(b);
   });
@@ -844,7 +856,9 @@ function updateAutoResult() {
   if (state.action.enabled && withData.length) {
     const clips = withData.reduce((n, r) => n + r.segments.length, 0);
     const hardToSee = withData.some(r => r.fallback);
-    $("auto-result").textContent = `Followed your player through ${plays} play${plays === 1 ? "" : "s"} and kept ${clips} action clip${clips === 1 ? "" : "s"} (${fmt(reelSeconds())} total). Untick any tagged moment to drop that clip.` +
+    $("auto-result").textContent = `Followed your player through ${plays} play${plays === 1 ? "" : "s"}` +
+      (state.refindFound ? ` (${state.refindFound} found by KitReel in the rest of the game)` : "") +
+      ` and kept ${clips} action clip${clips === 1 ? "" : "s"} (${fmt(reelSeconds())} total). Untick any tagged moment to drop that clip.` +
       (hardToSee ? " The ball is hard to see in this video, so clips are based on where the action is. A steadier, closer video gives better results." : "");
   } else {
     $("auto-result").textContent = `Followed your player through ${plays} plays (${fmt(reelSeconds())} total). Check the tagged moments and untick any that aren't them.`;
@@ -855,13 +869,20 @@ function updateAutoResult() {
 async function followPlayer() {
   const taps = state.moments.filter(isManualPick);
   if (!taps.length) return;
+  showProgress("Following your player and finding ball touches…");
+  await followSeeds(taps);
+  if ($("refind").checked) await refindRounds();
+  finishFollow();
+}
+
+// Follow each seed moment forward and backward (cached when nothing changed).
+async function followSeeds(seeds, { label = "Following your player and finding ball touches", stopAtCovered = false } = {}) {
   const target = hexToHsv($("kit-color").value);
   const kitColor = $("kit-color").value;
   const usualThreshold = target.s < 0.4 ? 0.3 : 0.2;
   const aspect = state.width / state.height;
-  showProgress("Following your player and finding ball touches…");
   const estimate = workSession.startEstimate();
-  const plannedSteps = taps.map(moment => {
+  const plannedSteps = seeds.map(moment => {
     if (moment.track?.playerIndex === moment.picked && moment.track?.kitColor === kitColor) return 0;
     const forward = Math.max(0, Math.ceil((state.duration - moment.t) * 2) - 1);
     const backward = Math.floor(moment.t * 2);
@@ -869,18 +890,20 @@ async function followPlayer() {
   });
   const remainingSteps = [...plannedSteps];
   let completedFrames = 0;
-  for (let i = 0; i < taps.length; i++) {
+  for (let i = 0; i < seeds.length; i++) {
     await workSession.waitUntilVisible();
-    const moment = taps[i];
+    const moment = seeds[i];
     let completedSteps = 0;
     const progress = (step = 0, total = 1) => {
       const fraction = Math.min(1, step / total);
-      setProgress(((i + fraction) / taps.length) * 100,
-        `Following your player and finding ball touches · play ${i + 1} of ${taps.length}`,
+      setProgress(((i + fraction) / seeds.length) * 100,
+        `${label} · play ${i + 1} of ${seeds.length}`,
         estimate(completedFrames, completedFrames + remainingSteps.reduce((sum, n) => sum + n, 0)));
     };
     progress();
     if (moment.track?.playerIndex !== moment.picked || moment.track?.kitColor !== kitColor) {
+      // Re-found players stop when they run into a stretch that's already followed.
+      const covered = stopAtCovered ? isCoveredBy(coveredSpans(state.moments.filter(m => m !== moment))) : null;
       moment.track = await trackPlayer({
         moment, playerIndex: moment.picked, duration: state.duration, target,
         threshold: usualThreshold, aspect,
@@ -889,6 +912,7 @@ async function followPlayer() {
         waitUntilVisible: () => workSession.waitUntilVisible(),
         seekAndDrawFrame: (t, previous) => seekDrawFrame(t, previous),
         detectBallNear: (box) => detectBallNear(state.model, box),
+        isCovered: covered,
         onStep: () => {
           completedFrames++;
           remainingSteps[i] = Math.max(0, remainingSteps[i] - 1);
@@ -901,16 +925,104 @@ async function followPlayer() {
     progress(1, 1);
   }
   state.followRan = true;
+  fitFollowedClips();     // tag the moments inside each follow, so they teach the look
+}
+
+// ---------- Find my player in the rest of the game ----------
+async function refindRounds() {
+  const wanted = $("kit-number").value.trim();
+  for (let round = 0; round < 15; round++) {
+    await workSession.waitUntilVisible();
+    setProgress(100, "Looking for your player in the rest of the game…");
+    const look = learnLook(state.moments, state.rejectedDescs);
+    const cands = candidatesInGaps(state.moments, look, { asked: state.askedKeys }).slice(0, 12);
+    const sure = [], ask = [];
+    for (const c of cands) {
+      const crop = c.moment.players[c.playerIndex].crop;
+      let num = wanted ? await numberVerdict(crop, wanted) : "unknown";
+      if (num === "mismatch" && c.runnerUp !== null) {
+        // The best lookalike shows a different number; the runner-up might be them.
+        const alt = await numberVerdict(c.moment.players[c.runnerUp].crop, wanted);
+        if (alt === "match") { c.playerIndex = c.runnerUp; c.key = `${c.moment.t}|${c.runnerUp}`; num = "match"; }
+      }
+      const v = verdictFor(c, look, num);
+      if (v === "sure") sure.push(c); else if (v === "ask") ask.push({ ...c, numberMatch: num === "match" });
+    }
+    state.questions = ask;
+    if (!sure.length) break;
+    for (const c of sure) { c.moment.picked = c.playerIndex; c.moment.pickSource = "matched"; state.refindFound++; }
+    await followSeeds(sure.map(c => c.moment), { label: "Following your player in the rest of the game", stopAtCovered: true });
+  }
+}
+
+function finishFollow() {
   $("review-error").textContent = "";
   updatePickInfo();
   renderMoments();
   updateAutoResult();
-  $("clear-auto").hidden = !state.moments.some(m => m.pickSource === "followed");
+  renderQuestions();
+  $("clear-auto").hidden = !state.moments.some(m => m.pickSource === "followed" || m.pickSource === "matched");
   hideProgress();
 }
+
+function renderQuestions() {
+  const qs = state.questions.filter(q => !state.askedKeys.has(q.key));
+  $("refind-panel").hidden = !qs.length;
+  const list = $("refind-list");
+  list.innerHTML = "";
+  const refs = state.moments.filter(m => isManualPick(m) && m.pickSource === "manual").slice(0, 3)
+    .map(m => m.players[m.picked].crop);
+  $("refind-refs").innerHTML = refs.map(src => `<img src="${src}" alt="Your tagged player" />`).join("");
+  for (const q of qs.slice(0, 8)) {
+    const card = document.createElement("div");
+    card.className = "q-card";
+    const p = q.moment.players[q.playerIndex];
+    card.innerHTML = `<div class="q-imgs"><img class="q-player" src="${p.crop}" alt="Possible match" /><img class="q-frame" src="${q.moment.thumb}" alt="" /></div>
+      <p class="q-time">${fmt(q.moment.t)} · player ${q.playerIndex + 1} in this frame${q.numberMatch ? " · number matches" : ""}</p>
+      <div class="row q-actions"><button type="button" class="primary small" data-a="yes">Yes, that's them</button>
+      <button type="button" class="secondary small" data-a="no">No</button>
+      <button type="button" class="ghost small" data-a="skip">Not sure</button></div>`;
+    card.querySelectorAll("button").forEach(b => b.addEventListener("click", () => answerQuestion(q, b.dataset.a)));
+    list.appendChild(card);
+  }
+  $("refind-more").textContent = qs.length > 8 ? `${qs.length - 8} more after these.` : "";
+}
+
+function answerQuestion(q, answer) {
+  if (workSession.running) return;
+  state.askedKeys.add(q.key);
+  const m = q.moment, p = m.players[q.playerIndex];
+  if (answer === "no") {
+    m.rejected = [...(m.rejected || []), q.playerIndex];
+    if (p.desc) state.rejectedDescs.push(p.desc);
+  }
+  if (answer === "yes") {
+    m.picked = q.playerIndex; m.pickSource = "confirmed";
+    const job = async () => {
+      showProgress("Following your player from that moment…");
+      await followSeeds([m], { label: "Following your player", stopAtCovered: true });
+      await refindRounds();
+      finishFollow();
+    };
+    job.protectWork = true;
+    return run(job, "review-error");
+  }
+  state.questions = state.questions.filter(x => !state.askedKeys.has(x.key));
+  if (!state.questions.length && answer === "no") {
+    // A "no" can make a better lookalike stand out: look again (quick, no following).
+    const job = async () => { showProgress("Looking for your player again…"); await refindRounds(); finishFollow(); };
+    job.protectWork = true;
+    return run(job, "review-error");
+  }
+  renderQuestions();
+}
+
 function clearAutoPicks() {
   if (workSession.running) return;
   clearAutomatic(state.moments);
+  for (const m of state.moments) if (m.pickSource === "matched") { m.picked = null; m.pickSource = null; m.track = null; }
+  state.questions = []; state.askedKeys = new Set(); state.rejectedDescs = []; state.refindFound = 0;
+  $("refind-panel").hidden = true;
   state.followRan = false;
   $("clear-auto").hidden = true;
   $("auto-result").hidden = true;

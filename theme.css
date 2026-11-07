@@ -80,3 +80,17 @@ video { border-radius: 14px; }
   .card { padding: 18px; border-radius: 18px; }
 }
 @media (prefers-reduced-motion: reduce) { button, .button { transition: none; } }
+
+/* Is this your player? */
+.refind-panel { margin: 18px 0 8px; padding: 16px; border-radius: 16px; border: 1px solid rgba(255,214,0,.35); background: rgba(255,214,0,.05); }
+.refind-panel h3 { margin: 0 0 4px; font-family: var(--display); font-weight: 800; text-transform: uppercase; font-size: 1.35rem; letter-spacing: .02em; }
+.refind-refs-wrap { display: flex; align-items: center; gap: 10px; margin: 8px 0 12px; }
+.refind-refs { display: flex; gap: 6px; }
+.refind-refs img { height: 64px; border-radius: 8px; border: 2px solid var(--accent); }
+.refind-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+.q-card { background: var(--card-solid); border: 1px solid var(--line); border-radius: 14px; padding: 10px; }
+.q-imgs { display: flex; gap: 8px; align-items: stretch; }
+.q-player { height: 110px; border-radius: 8px; border: 2px solid var(--gold); }
+.q-frame { flex: 1; min-width: 0; height: 110px; object-fit: cover; border-radius: 8px; }
+.q-time { margin: 8px 0 6px; font-size: .85rem; color: var(--muted); }
+.q-actions { margin: 0; gap: 6px; }

@@ -28,7 +28,7 @@
   <!-- Bump ?v on both asset tags whenever app.js or style.css changes. -->
   <link rel="stylesheet" href="/style.css?v=8" />
   <link rel="preload" href="/fonts/barlow-condensed-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin />
-  <link rel="stylesheet" href="/theme.css?v=1" />
+  <link rel="stylesheet" href="/theme.css?v=2" />
 </head>
 <body>
   <header>
@@ -175,6 +175,7 @@
         </label>
         <button id="auto-pick" class="secondary" disabled>Follow my player</button>
         <label class="inline action-toggle"><input type="checkbox" id="action-only" checked /> Only keep my player in action</label>
+        <label class="inline action-toggle"><input type="checkbox" id="refind" checked /> Find my player in the rest of the game</label>
         <label class="inline" id="closeness-wrap">How close to the ball
           <select id="closeness">
             <option value="tight">Tight</option>
@@ -191,6 +192,13 @@
       <div id="moments" class="moments"></div>
       <div class="row center">
         <button id="more" class="secondary" hidden>Show more moments</button>
+      </div>
+      <div id="refind-panel" class="refind-panel" hidden>
+        <h3>Is this your player?</h3>
+        <p class="hint">KitReel found players who look like yours but isn't sure. Each "yes" follows them from there and helps it find more.</p>
+        <div class="refind-refs-wrap"><span class="hint">Your player:</span><div id="refind-refs" class="refind-refs"></div></div>
+        <div id="refind-list" class="refind-list"></div>
+        <p class="hint" id="refind-more"></p>
       </div>
       <div id="clip-panel" class="clip-panel" hidden>
         <h3>Your clips</h3>
@@ -242,7 +250,7 @@
   </footer>
 
   <!-- Bump ?v on both asset tags whenever app.js or style.css changes. -->
-  <script type="module" src="/app.js?v=16"></script>
+  <script type="module" src="/app.js?v=17"></script>
   <script src="/theme.js?v=1" defer></script>
 </body>
 </html>
