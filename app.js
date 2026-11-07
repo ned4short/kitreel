@@ -12,7 +12,7 @@ const PAGE = 30;            // moments shown per "Show more"
 const state = {
   file: null, url: null, duration: 0, width: 0, height: 0,
   limits: { maxVideoMB: 4096, maxVideoMinutes: 101, touchMaxVideoMB: 500, touchMaxVideoMinutes: 20,
-    maxReelSeconds: 180, maxMoments: 900, reelTtlHours: 24 },
+    maxReelSeconds: 600, maxMoments: 900, reelTtlHours: 24 },
   model: null, modelPromise: null, videoSelection: 0, firstFrameChecked: false, lastDrawnFrame: null,
   teamChosen: false,
   moments: [], shown: PAGE, reelBlob: null, reelUrl: null, ffmpeg: null, ffmpegPromise: null,
@@ -41,6 +41,8 @@ init();
 
 async function init() {
   if (isTouchDevice()) {
+    // Phones: reels up to 3 minutes (memory and build time); computers go up to 10.
+    $("max-len").querySelectorAll("[data-computer-only]").forEach(o => o.remove());
     $("max-len").value = "60";
     try {
       $("device-tip").hidden = window.localStorage.getItem("kitreel-device-tip-dismissed") === "1";

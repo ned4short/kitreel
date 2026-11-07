@@ -110,8 +110,11 @@
         <label>Max reel length
           <select id="max-len">
             <option value="60">1 minute</option>
-            <option value="120" selected>2 minutes</option>
-            <option value="180">3 minutes</option>
+            <option value="120">2 minutes</option>
+            <option value="180" selected>3 minutes</option>
+            <option value="300" data-computer-only>5 minutes</option>
+            <option value="480" data-computer-only>8 minutes</option>
+            <option value="600" data-computer-only>10 minutes</option>
           </select>
         </label>
         <label>Check the video every
@@ -239,7 +242,7 @@
   </footer>
 
   <!-- Bump ?v on both asset tags whenever app.js or style.css changes. -->
-  <script type="module" src="/app.js?v=15"></script>
+  <script type="module" src="/app.js?v=16"></script>
   <script src="/theme.js?v=1" defer></script>
 </body>
 </html>
