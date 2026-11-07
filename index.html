@@ -28,7 +28,7 @@
   <!-- Bump ?v on both asset tags whenever app.js or style.css changes. -->
   <link rel="stylesheet" href="/style.css?v=8" />
   <link rel="preload" href="/fonts/barlow-condensed-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin />
-  <link rel="stylesheet" href="/theme.css?v=4" />
+  <link rel="stylesheet" href="/theme.css?v=6" />
 </head>
 <body>
   <header>
@@ -38,10 +38,13 @@
         <p class="headline">Tag your player. <span>Get their reel.</span></p>
         <p>Upload game video, pick a team, tag your player, and get their highlight reel. Free, and your video never leaves your device.</p>
       </div>
-      <button type="button" class="install-app" id="install-app" hidden>
-        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 3v12m0 0-5-5m5 5 5-5M5 20h14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        Install app
-      </button>
+      <div class="install-wrap" id="install-wrap" hidden>
+        <button type="button" class="install-app" id="install-app">
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 3v12m0 0-5-5m5 5 5-5M5 20h14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Install<span class="lbl-long">&nbsp;app</span>
+        </button>
+        <button type="button" class="install-hide" id="install-hide" aria-label="Hide for 7 days" title="Hide for 7 days">×</button>
+      </div>
     </div>
     <div class="install-tip" id="install-tip" role="note" hidden>
       <p><strong>Add KitReel 2.0 to your Home Screen:</strong> tap the Share button <svg viewBox="0 0 24 24" width="17" height="17" aria-label="Share"><path d="M12 15V3m0 0-4 4m4-4 4 4M7 10H5v11h14V10h-2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>, then choose <strong>Add to Home Screen</strong>.</p>
@@ -251,6 +254,7 @@
       <a class="button primary donate-button" href="https://www.nedairfilters.com/product/tipsanddonations/61" target="_blank" rel="noopener noreferrer">Donate</a>
     </div>
     <p class="site-credit">
+      <a href="/app/">Get the app</a> ·
       <span>KitReel 2.0 by <a href="https://www.nedwebservices.com" target="_blank" rel="noopener noreferrer">Ned Web Services</a> (2026)</span>
     </p>
     <div data-ned-ads></div>
@@ -260,6 +264,6 @@
   <!-- Bump ?v on both asset tags whenever app.js or style.css changes. -->
   <script type="module" src="/app.js?v=18"></script>
   <script src="/theme.js?v=1" defer></script>
-  <script src="/install.js?v=1" defer></script>
+  <script src="/install.js?v=2" defer></script>
 </body>
 </html>

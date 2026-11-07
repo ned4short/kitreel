@@ -3,7 +3,7 @@
 //   right away), fall back to the saved copy when offline.
 // - The big engines (player detection, video maker, number reader): saved the first
 //   time they're used, then loaded from the device every time after that.
-const SHELL = "kitreel-shell-v1";
+const SHELL = "kitreel-shell-v2";
 const ENGINES = "kitreel-engines-v1";
 const KEEP = [SHELL, ENGINES];
 const isEngine = path => path.startsWith("/vendor/") || path.startsWith("/models/");
