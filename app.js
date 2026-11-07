@@ -5,7 +5,7 @@ import { createWorkSession } from "/work-session.js";
 import { actionSegments, applyFollowedTracks, budgetTracks, clearAutomatic, clipsFor, isCameraCut, isManualPick } from "/auto-pick.js?v=3";
 import { createCrowdTask } from "/crowd-noise.js";
 import { trackPlayer } from "/tracker.js?v=4";
-import { cameraFor, cropFilter, spotlightFor, drawRing, drawCard, silentWav } from "/reel-fx.js?v=1";
+import { cameraFor, cropFilter, spotlightFor, drawRing, drawCard, silentWav } from "/reel-fx.js?v=2";
 import { learnLook, candidatesInGaps, verdictFor, coveredSpans, isCoveredBy } from "/refind.js?v=1";
 import { numberVerdict } from "/jersey-ocr.js?v=1";
 
@@ -1266,7 +1266,7 @@ async function shareReel() {
   if (!state.reelBlob) return;
   const file = new File([state.reelBlob], "highlight-reel.mp4", { type: "video/mp4" });
   try {
-    await navigator.share({ files: [file], title: "Highlight reel", text: "Made with KitReel: https://kitreel.nedwebservices.com" });
+    await navigator.share({ files: [file], title: "Highlight reel", text: "Made with KitReel 2.0: https://kitreel.nedwebservices.com" });
     $("share-info").textContent = "";
   } catch (e) {
     if (e && e.name === "AbortError") return;

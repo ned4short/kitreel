@@ -32,6 +32,7 @@ body {
 header { padding-top: 34px; }
 header h1 { display: flex; align-items: center; gap: 10px; font-family: var(--display); font-weight: 800; font-size: 1.9rem; letter-spacing: .01em; text-transform: uppercase; }
 .brand-mark { width: 36px; height: 36px; border-radius: 10px; }
+header h1 .ver { color: var(--accent); }
 .headline { margin: 18px 0 8px !important; font-family: var(--display); font-weight: 800; text-transform: uppercase;
   font-size: clamp(2.4rem, 8vw, 3.9rem); line-height: .95; letter-spacing: .005em; color: var(--text) !important; }
 .headline span { display: block; color: var(--accent); }

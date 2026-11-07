@@ -1,4 +1,4 @@
-# KitReel (GitHub version)
+# KitReel 2.0 (GitHub version)
 
 Free soccer highlight reels: upload a game video, pick the team, tag your player, and download their reel. Everything runs in the visitor's browser (TensorFlow.js + COCO-SSD for players and the ball, ffmpeg.wasm to cut the reel); the video never leaves their device.
 

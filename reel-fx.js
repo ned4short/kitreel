@@ -109,11 +109,11 @@ export function drawCard(canvas, W, H, kind, info) {
   canvas.width = W; canvas.height = H;
   const c = canvas.getContext("2d");
   const g = c.createLinearGradient(0, 0, W, H);
-  g.addColorStop(0, "#0f1a14"); g.addColorStop(1, "#1d3b2a");
+  g.addColorStop(0, "#0b1110"); g.addColorStop(1, "#16220f");
   c.fillStyle = g; c.fillRect(0, 0, W, H);
   const u = Math.min(W, H) / 100;              // layout unit
   c.textAlign = "center"; c.textBaseline = "middle";
-  const font = (wt, px) => `${wt} ${Math.round(px)}px "Outfit", "Segoe UI", Arial, sans-serif`;
+  const font = (wt, px) => `${wt} ${Math.round(px)}px "Barlow Condensed", "Arial Narrow", "Segoe UI", Arial, sans-serif`;
   const fit = (text, wt, px, maxW) => {
     let size = px;
     c.font = font(wt, size);
@@ -121,10 +121,10 @@ export function drawCard(canvas, W, H, kind, info) {
   };
   if (kind === "title") {
     const lines = [];
-    if (info.number) lines.push({ text: `#${info.number}`, wt: 800, px: u * 16, color: "#FFD600" });
-    lines.push({ text: info.name || "Highlights", wt: 800, px: u * 11, color: "#FFFFFF" });
+    if (info.number) lines.push({ text: `#${info.number}`, wt: 800, px: u * 18, color: "#C6FF3D" });
+    lines.push({ text: (info.name || "Highlights").toUpperCase(), wt: 800, px: u * 13, color: "#FFFFFF" });
     const sub = [info.team, info.date].filter(Boolean).join(" · ");
-    if (sub) lines.push({ text: sub, wt: 600, px: u * 5, color: "#A8D5B9" });
+    if (sub) lines.push({ text: sub.toUpperCase(), wt: 700, px: u * 5.5, color: "#95A59D" });
     const gap = u * 4;
     const heights = lines.map(l => l.px);
     let y = H / 2 - (heights.reduce((a, b) => a + b, 0) + gap * (lines.length - 1)) / 2;
@@ -134,14 +134,18 @@ export function drawCard(canvas, W, H, kind, info) {
       c.fillText(l.text, W / 2, y + l.px / 2);
       y += l.px + gap;
     }
-    c.fillStyle = "#FFD600"; c.fillRect(W / 2 - u * 8, H - u * 12, u * 16, Math.max(3, u * 0.8));
+    c.fillStyle = "#C6FF3D"; c.fillRect(W / 2 - u * 8, H - u * 12, u * 16, Math.max(3, u * 0.8));
   } else {
-    fit("Made with KitReel", 800, u * 8, W * 0.86);
-    c.fillStyle = "#FFFFFF"; c.fillText("Made with KitReel", W / 2, H / 2 - u * 6);
-    fit("kitreel.nedwebservices.com", 600, u * 4.6, W * 0.86);
-    c.fillStyle = "#FFD600"; c.fillText("kitreel.nedwebservices.com", W / 2, H / 2 + u * 5);
-    fit("Free player highlight reels", 600, u * 3.6, W * 0.86);
-    c.fillStyle = "#A8D5B9"; c.fillText("Free player highlight reels", W / 2, H / 2 + u * 13);
+    fit("MADE WITH", 700, u * 5.5, W * 0.86);
+    c.fillStyle = "#95A59D"; c.fillText("MADE WITH", W / 2, H / 2 - u * 15);
+    fit("KITREEL 2.0", 800, u * 15, W * 0.86);
+    c.fillStyle = "#FFFFFF"; c.fillText("KITREEL", W / 2 - c.measureText(" 2.0").width / 2, H / 2 - u * 3);
+    const kw = c.measureText("KITREEL").width;
+    c.textAlign = "left"; c.fillStyle = "#C6FF3D";
+    c.fillText(" 2.0", W / 2 - c.measureText(" 2.0").width / 2 + kw / 2, H / 2 - u * 3);
+    c.textAlign = "center";
+    fit("kitreel.nedwebservices.com", 700, u * 5, W * 0.86);
+    c.fillStyle = "#C6FF3D"; c.fillText("kitreel.nedwebservices.com", W / 2, H / 2 + u * 10);
   }
 }
 
