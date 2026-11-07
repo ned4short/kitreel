@@ -76,9 +76,23 @@ export const CLOSENESS = { tight: 1.0, normal: 1.5, loose: 2.5 };
 const LEAD = 2, TAIL = 1.5, MERGE_GAP = 2.5, MAX_BALL_GAP = 1.5;
 const segmentCache = new WeakMap();
 
+// How each position changes what counts as "in action". Gentle nudges only:
+//  reach  — how far from the ball still counts (× the "How close to the ball" setting)
+//  burst  — how sudden a movement must be to count as a challenge (× the player's average speed)
+//  alone  — a burst counts even with nobody nearby (a goalie's dive or rush out)
+//  crowd  — players nearby that make it "in the action" when the ball can't be seen
+export const POSITION_STYLE = {
+  goalie:     { reach: 1.6,  burst: 1.5, alone: true,  crowd: 2 },
+  defender:   { reach: 1.15, burst: 1.6, alone: false, crowd: 3 },
+  midfielder: { reach: 1.0,  burst: 2.0, alone: false, crowd: 3 },
+  striker:    { reach: 1.1,  burst: 1.8, alone: false, crowd: 2 },
+  "":         { reach: 1.0,  burst: 2.0, alone: false, crowd: 3 },
+};
+
 export function actionSegments(track, action, duration = Infinity) {
-  const limit = CLOSENESS[action?.closeness] ?? CLOSENESS.normal;
-  const key = `${limit}|${duration}`;
+  const style = POSITION_STYLE[action?.position || ""] || POSITION_STYLE[""];
+  const limit = (CLOSENESS[action?.closeness] ?? CLOSENESS.normal) * style.reach;
+  const key = `${limit}|${duration}|${action?.position || ""}`;
   const cached = segmentCache.get(track);
   if (cached?.key === key) return cached.result;
 
@@ -120,11 +134,11 @@ export function actionSegments(track, action, duration = Infinity) {
 
   result.fallback = result.ballRatio < 0.15;
   const reasons = steps.map((s, i) => {
-    const challenge = s.near >= 1 && speed[i] > Math.max(2 * avgSpeed, 0.5);
+    const challenge = (style.alone || s.near >= 1) && speed[i] > Math.max(style.burst * avgSpeed, 0.5);
     if (!result.fallback && dist[i] !== null && dist[i] <= Math.min(0.3, limit)) return "On the ball";
     if (!result.fallback && dist[i] !== null && dist[i] <= limit) return "Near the ball";
     if (challenge) return "Challenge";
-    if (result.fallback && s.cluster >= 3) return "In the action";
+    if (result.fallback && s.cluster >= style.crowd) return "In the action";
     return null;
   });
 

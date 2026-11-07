@@ -123,7 +123,7 @@ export function drawCard(canvas, W, H, kind, info) {
     const lines = [];
     if (info.number) lines.push({ text: `#${info.number}`, wt: 800, px: u * 18, color: "#C6FF3D" });
     lines.push({ text: (info.name || "Highlights").toUpperCase(), wt: 800, px: u * 13, color: "#FFFFFF" });
-    const sub = [info.team, info.date].filter(Boolean).join(" · ");
+    const sub = [info.position, info.team, info.date].filter(Boolean).join(" · ");
     if (sub) lines.push({ text: sub.toUpperCase(), wt: 700, px: u * 5.5, color: "#95A59D" });
     const gap = u * 4;
     const heights = lines.map(l => l.px);

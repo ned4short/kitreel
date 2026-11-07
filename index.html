@@ -28,7 +28,7 @@
   <!-- Bump ?v on both asset tags whenever app.js or style.css changes. -->
   <link rel="stylesheet" href="/style.css?v=8" />
   <link rel="preload" href="/fonts/barlow-condensed-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin />
-  <link rel="stylesheet" href="/theme.css?v=7" />
+  <link rel="stylesheet" href="/theme.css?v=8" />
 </head>
 <body>
   <header>
@@ -96,8 +96,18 @@
         <span class="hint">or click a jersey in the video above</span>
       </div>
       <div id="teams" class="chips"></div>
+      <p class="hint goalie-hint" id="goalie-hint" hidden>🧤 Goalies wear their own color. Pause the video above and click the goalie's jersey to grab it.</p>
       <div class="grid">
-        <label>Shirt color
+        <label>Position <span class="opt">(optional)</span>
+          <select id="position">
+            <option value="">Not sure / any</option>
+            <option value="goalie">Goalie</option>
+            <option value="defender">Defender</option>
+            <option value="midfielder">Midfielder</option>
+            <option value="striker">Striker</option>
+          </select>
+        </label>
+        <label><span id="kit-color-label">Shirt color</span>
           <input type="color" id="kit-color" value="#d62828" />
         </label>
         <label>Player's number <span class="opt">(optional reminder)</span>
@@ -262,7 +272,7 @@
   </footer>
 
   <!-- Bump ?v on both asset tags whenever app.js or style.css changes. -->
-  <script type="module" src="/app.js?v=18"></script>
+  <script type="module" src="/app.js?v=19"></script>
   <script src="/theme.js?v=1" defer></script>
   <script src="/install.js?v=2" defer></script>
 </body>

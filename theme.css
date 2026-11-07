@@ -113,3 +113,5 @@ video { border-radius: 14px; }
 .install-wrap[hidden], .install-app[hidden], .install-tip[hidden] { display: none !important; }
 @media (max-width: 420px) { .install-wrap .install-app { padding: 7px 11px; } .install-wrap .lbl-long { display: none; } .install-hide { padding: 6px 2px 6px 4px; } }
 .footer-note { text-align: center; }
+.goalie-hint { margin: 10px 0 0; color: var(--accent); }
+.goalie-hint[hidden] { display: none; }

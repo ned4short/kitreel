@@ -2,10 +2,10 @@
 // a player detector (TensorFlow.js) finds people in the chosen kit color,
 // the user taps their player, and ffmpeg.wasm cuts the reel.
 import { createWorkSession } from "/work-session.js";
-import { actionSegments, applyFollowedTracks, budgetTracks, clearAutomatic, clipsFor, isCameraCut, isManualPick } from "/auto-pick.js?v=3";
+import { actionSegments, applyFollowedTracks, budgetTracks, clearAutomatic, clipsFor, isCameraCut, isManualPick } from "/auto-pick.js?v=4";
 import { createCrowdTask } from "/crowd-noise.js";
 import { trackPlayer } from "/tracker.js?v=4";
-import { cameraFor, cropFilter, spotlightFor, drawRing, drawCard, silentWav } from "/reel-fx.js?v=2";
+import { cameraFor, cropFilter, spotlightFor, drawRing, drawCard, silentWav } from "/reel-fx.js?v=3";
 import { learnLook, candidatesInGaps, verdictFor, coveredSpans, isCoveredBy } from "/refind.js?v=1";
 import { numberVerdict } from "/jersey-ocr.js?v=1";
 
@@ -19,7 +19,7 @@ const state = {
   teamChosen: false,
   moments: [], shown: PAGE, reelBlob: null, reelUrl: null, ffmpeg: null, ffmpegPromise: null,
   loudness: null, cancelCrowd: null, editorQueue: Promise.resolve(), followRan: false, scanInterval: 3,
-  action: { enabled: true, closeness: "normal" },   // "Only keep my player in action"
+  action: { enabled: true, closeness: "normal", position: "" },   // "Only keep my player in action"
   clipEdits: {},          // per-clip trims/removals, keyed by the clip's original start–end
   clipBlobs: [],          // finished single clips, for "Download clips one by one"
   questions: [],          // "Is this your player?" candidates
@@ -85,6 +85,16 @@ async function init() {
     updatePickInfo(); renderMoments(); updateAutoResult();
   };
   $("action-only").addEventListener("change", onActionChange);
+  // Position: goalies get their own shirt color; each position changes what counts as a highlight.
+  const onPosition = () => {
+    const pos = $("position").value;
+    state.action.position = pos;
+    $("goalie-hint").hidden = pos !== "goalie";
+    $("kit-color-label").textContent = pos === "goalie" ? "Goalie's shirt color" : "Shirt color";
+    if (workSession.running) return;
+    updatePickInfo(); renderMoments(); updateAutoResult();
+  };
+  $("position").addEventListener("change", onPosition);
   $("closeness").addEventListener("change", onActionChange);
   $("more").addEventListener("click", () => { state.shown += PAGE; renderMoments(); });
   $("build").addEventListener("click", () => run(buildReel, "review-error"));
@@ -377,7 +387,8 @@ async function scan() {
     const frame = await seekDrawFrame(times[i], previousFrame, trySeek);
     if (frame) {
       previousFrame = frame;
-      if (await kitScore(target) >= 0.002) candidates.push(times[i]);
+      // A goalie is one player, so their color covers far less of the frame than a team's.
+      if (await kitScore(target) >= (state.action.position === "goalie" ? 0.0006 : 0.002)) candidates.push(times[i]);
     }
     if (i === 0 || (i + 1) % 5 === 0 || i === times.length - 1) {
       setProgress(((i + 1) / times.length) * 30, `Checking colors · ${fmt(times[i])} of ${fmt(state.duration)}`,
@@ -1103,6 +1114,7 @@ async function encodeReel(clips, W, H) {
     name: $("fx-name").value.trim(), team: $("fx-team").value.trim(),
     date: $("fx-date").value ? new Date($("fx-date").value + "T12:00:00").toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" }) : "",
     number: $("kit-number").value.trim(),
+    position: { goalie: "Goalie", defender: "Defender", midfielder: "Midfielder", striker: "Striker" }[$("position").value] || "",
   };
   const ratio = W / H, SW = state.width, SH = state.height;
   const total = clips.length + (extras.title ? 1 : 0) + (extras.end ? 1 : 0);
