@@ -101,10 +101,26 @@
         <label>Position <span class="opt">(optional)</span>
           <select id="position">
             <option value="">Not sure / any</option>
-            <option value="goalie">Goalie</option>
-            <option value="defender">Defender</option>
-            <option value="midfielder">Midfielder</option>
-            <option value="striker">Striker</option>
+            <optgroup label="Goal">
+              <option value="goalie">Goalie</option>
+            </optgroup>
+            <optgroup label="Defense">
+              <option value="centerback">Center back</option>
+              <option value="fullback">Full back (left or right back)</option>
+              <option value="wingback">Wing back</option>
+              <option value="defender">Defender (any)</option>
+            </optgroup>
+            <optgroup label="Midfield">
+              <option value="dmid">Defensive midfielder</option>
+              <option value="cmid">Center midfielder</option>
+              <option value="amid">Attacking midfielder</option>
+              <option value="widemid">Wide midfielder (left or right)</option>
+              <option value="midfielder">Midfielder (any)</option>
+            </optgroup>
+            <optgroup label="Attack">
+              <option value="winger">Winger</option>
+              <option value="striker">Striker / center forward</option>
+            </optgroup>
           </select>
         </label>
         <label><span id="kit-color-label">Shirt color</span>
@@ -272,7 +288,7 @@
   </footer>
 
   <!-- Bump ?v on both asset tags whenever app.js or style.css changes. -->
-  <script type="module" src="/app.js?v=19"></script>
+  <script type="module" src="/app.js?v=20"></script>
   <script src="/theme.js?v=1" defer></script>
   <script src="/install.js?v=2" defer></script>
 </body>

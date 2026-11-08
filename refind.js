@@ -68,8 +68,40 @@ export function learnLook(moments, rejected = []) {
   };
 }
 
+// Where the player usually stands compared with their teammates in the same shot:
+// left-to-right order (along the field from a sideline camera) and near-to-far order
+// (which touchline). Learned only from tags close in time, so a halftime switch of
+// ends doesn't mislead it, and used only when those tags agree with each other.
+function ranks(m, i) {
+  const n = m.players.length;
+  if (n < 3) return null;
+  const byX = m.players.map((p, k) => [(p.box[0] + p.box[2]) / 2, k]).sort((a, b) => a[0] - b[0]).map(e => e[1]);
+  const byY = m.players.map((p, k) => [p.box[3], k]).sort((a, b) => a[0] - b[0]).map(e => e[1]);
+  return { x: byX.indexOf(i) / (n - 1), y: byY.indexOf(i) / (n - 1) };
+}
+export function sideHint(moments, { window = 900, nearest = 6, maxSpread = 0.18, weight = 0.02 } = {}) {
+  const samples = moments.filter(isIdentified).map(m => ({ t: m.t, r: ranks(m, m.picked) })).filter(s => s.r);
+  return (m, i) => {
+    const r = ranks(m, i);
+    if (!r) return 0;
+    const near = samples.filter(s => Math.abs(s.t - m.t) <= window)
+      .sort((a, b) => Math.abs(a.t - m.t) - Math.abs(b.t - m.t)).slice(0, nearest);
+    if (near.length < 3) return 0;
+    let bonus = 0;
+    for (const axis of ["x", "y"]) {
+      const v = near.map(s => s.r[axis]);
+      const mean = v.reduce((a, b) => a + b, 0) / v.length;
+      const sd = Math.sqrt(v.reduce((a, b) => a + (b - mean) ** 2, 0) / v.length);
+      if (sd > maxSpread) continue;                       // no steady habit on this axis
+      bonus += weight * Math.max(0, 1 - Math.abs(r[axis] - mean) / 0.35);
+    }
+    return bonus;
+  };
+}
+
 // Best candidate in each uncovered stretch of the game.
 export function candidatesInGaps(moments, look, { asked = new Set() } = {}) {
+  const side = sideHint(moments);
   const covered = isCoveredBy(coveredSpans(moments));
   const open = moments.filter(m => !isIdentified(m) && !covered(m.t)).sort((a, b) => a.t - b.t);
   // Group neighbouring uncovered moments (≤ 12 s apart) into gaps.
@@ -87,10 +119,11 @@ export function candidatesInGaps(moments, look, { asked = new Set() } = {}) {
         let s = look.sim(p.desc);
         // Looks like someone the user already said "no" to: count it down.
         for (const r of look.rejected) if (dot(p.desc, r) > s) s -= 0.05;
-        return { i, s };
-      }).filter(Boolean).sort((a, b) => b.s - a.s);
+        // Where they stand only breaks near-ties between lookalikes; it never makes a match "sure".
+        return { i, s, rank: s + side(m, i) };
+      }).filter(Boolean).sort((a, b) => b.rank - a.rank);
       if (!scored.length) continue;
-      const margin = scored.length > 1 ? scored[0].s - scored[1].s : 0.2;
+      const margin = scored.length > 1 ? scored[0].s - Math.max(...scored.slice(1).map(x => x.s)) : 0.2;
       const cand = { moment: m, playerIndex: scored[0].i, score: scored[0].s, margin,
         runnerUp: scored[1] ? scored[1].i : null, key: `${m.t}|${scored[0].i}` };
       if (asked.has(cand.key)) continue;

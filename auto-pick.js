@@ -89,8 +89,16 @@ export const POSITION_STYLE = {
   "":         { reach: 1.0,  burst: 2.0, alone: false, crowd: 3 },
 };
 
+// Specific positions use the closest of the styles above.
+export const POSITION_GROUP = {
+  centerback: "defender", fullback: "defender", dmid: "defender",
+  wingback: "midfielder", cmid: "midfielder", widemid: "midfielder",
+  amid: "striker", winger: "striker",
+};
+
 export function actionSegments(track, action, duration = Infinity) {
-  const style = POSITION_STYLE[action?.position || ""] || POSITION_STYLE[""];
+  const pos = action?.position || "";
+  const style = POSITION_STYLE[POSITION_GROUP[pos] || pos] || POSITION_STYLE[""];
   const limit = (CLOSENESS[action?.closeness] ?? CLOSENESS.normal) * style.reach;
   const key = `${limit}|${duration}|${action?.position || ""}`;
   const cached = segmentCache.get(track);

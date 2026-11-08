@@ -2,11 +2,11 @@
 // a player detector (TensorFlow.js) finds people in the chosen kit color,
 // the user taps their player, and ffmpeg.wasm cuts the reel.
 import { createWorkSession } from "/work-session.js";
-import { actionSegments, applyFollowedTracks, budgetTracks, clearAutomatic, clipsFor, isCameraCut, isManualPick } from "/auto-pick.js?v=4";
+import { actionSegments, applyFollowedTracks, budgetTracks, clearAutomatic, clipsFor, isCameraCut, isManualPick } from "/auto-pick.js?v=5";
 import { createCrowdTask } from "/crowd-noise.js";
 import { trackPlayer } from "/tracker.js?v=4";
 import { cameraFor, cropFilter, spotlightFor, drawRing, drawCard, silentWav } from "/reel-fx.js?v=3";
-import { learnLook, candidatesInGaps, verdictFor, coveredSpans, isCoveredBy } from "/refind.js?v=1";
+import { learnLook, candidatesInGaps, verdictFor, coveredSpans, isCoveredBy } from "/refind.js?v=2";
 import { numberVerdict } from "/jersey-ocr.js?v=1";
 
 const $ = (id) => document.getElementById(id);
@@ -1114,7 +1114,7 @@ async function encodeReel(clips, W, H) {
     name: $("fx-name").value.trim(), team: $("fx-team").value.trim(),
     date: $("fx-date").value ? new Date($("fx-date").value + "T12:00:00").toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" }) : "",
     number: $("kit-number").value.trim(),
-    position: { goalie: "Goalie", defender: "Defender", midfielder: "Midfielder", striker: "Striker" }[$("position").value] || "",
+    position: $("position").value ? $("position").selectedOptions[0].textContent.replace(/\s*\(.*\)$/, "").replace(" / center forward", "") : "",
   };
   const ratio = W / H, SW = state.width, SH = state.height;
   const total = clips.length + (extras.title ? 1 : 0) + (extras.end ? 1 : 0);
